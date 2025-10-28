@@ -1,0 +1,25 @@
+{
+ "transactions": [
+  {
+   "id": 3,
+   "date": "2025-10-24T04:26:21.583448425Z",
+   "amount": 200,
+   "category": "food",
+   "description": "s",
+   "type": "income"
+  },
+  {
+   "id": 4,
+   "date": "2025-10-27T05:09:22.690971959Z",
+   "amount": 123,
+   "category": "asdf",
+   "description": "adf",
+   "type": "income"
+  }
+ ],
+ "Accounts": [],
+ "AccountTransactions": null,
+ "NextTransactionID": 5,
+ "NextAccountID": 3,
+ "NextAccountTransactionID": 5
+}
