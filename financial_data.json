@@ -17,9 +17,9 @@
    "type": "income"
   }
  ],
- "Accounts": [],
- "AccountTransactions": null,
- "NextTransactionID": 5,
- "NextAccountID": 3,
- "NextAccountTransactionID": 5
+ "accounts": [],
+ "account_transactions": null,
+ "next_transaction_id": 0,
+ "next_account_id": 0,
+ "next_account_transaction_id": 0
 }

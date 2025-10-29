@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,71 +9,6 @@ import (
 	"strings"
 	"time"
 )
-
-// Global storage - in memory for now
-var transactions []Transaction
-var accounts []Account
-var accountTransactions []AccountTransaction
-
-// ID counters
-var nextTransactionID = 1
-var nextAccountID = 1
-var nextAccountTransactionID = 1
-
-const dataFile = "financial_data.json"
-
-func saveData() error {
-	data := AppData{
-		Transactions:             transactions,
-		Accounts:                 accounts,
-		AccountTransactions:      accountTransactions,
-		NextTransactionID:        nextTransactionID,
-		NextAccountID:            nextAccountID,
-		NextAccountTransactionID: nextAccountTransactionID,
-	}
-
-	json_data, err := json.MarshalIndent(data, "", " ")
-	if err != nil {
-		fmt.Println("[Warning] Could not convert struct to json format in saveData function!")
-		return err
-	}
-
-	err = os.WriteFile(dataFile, json_data, 0644)
-	if err != nil {
-		fmt.Println("[Warning] Could not Write to file to save data in saveData function!")
-		return err
-	}
-	return nil
-}
-
-func loadData() error {
-	_, err := os.Stat(dataFile)
-	if os.IsNotExist(err) {
-		return nil
-	}
-
-	jsonData, err := os.ReadFile(dataFile)
-
-	if err != nil {
-		// fmt.Println("[Warning] Could not Read the Json file to Load the ")
-		return err
-	}
-
-	var data AppData
-	err = json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return err
-	}
-
-	transactions = data.Transactions
-	accounts = data.Accounts
-	accountTransactions = data.AccountTransactions
-	nextAccountID = data.NextAccountID
-	nextTransactionID = data.NextTransactionID
-	nextAccountTransactionID = data.NextAccountTransactionID
-
-	return nil
-}
 
 func get_valid_transaction_type(reader *bufio.Reader) string {
 	for {
