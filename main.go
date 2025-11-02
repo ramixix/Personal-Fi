@@ -124,20 +124,6 @@ func handleAddTransaction() {
 	fmt.Printf("Total transactions: %d\n", len(transactions))
 }
 
-// Get transaction within date range
-func get_transaction_by_range(days int) []Transaction {
-	var filtered []Transaction
-	cutoff_data := time.Now().AddDate(0, 0, -days)
-
-	for _, transaction := range transactions {
-		if transaction.Date.After(cutoff_data) {
-			filtered = append(filtered, transaction)
-		}
-	}
-
-	return filtered
-}
-
 // Handle listing all transactions
 func handleListTransactions() {
 	fmt.Println("List Transactions")
@@ -147,15 +133,15 @@ func handleListTransactions() {
 		filter := strings.ToLower(os.Args[2])
 		switch filter {
 		case "week":
-			list_filtered_transactions(get_transaction_by_range(7), "Last 7 Days (Last Week)")
+			listFilteredTransactions(getTransactionsByDateRange(7), "Last 7 Days (Last Week)")
 		case "month":
-			list_filtered_transactions(get_transaction_by_range(30), "Last 30 Days (Last Month)")
+			listFilteredTransactions(getTransactionsByDateRange(30), "Last 30 Days (Last Month)")
 		case "year":
-			list_filtered_transactions(get_transaction_by_range(365), "Last 365 Days (Last Year)")
+			listFilteredTransactions(getTransactionsByDateRange(365), "Last 365 Days (Last Year)")
 		case "income":
-			list_filtered_transactions(getTransactionsByType("income"), "All Incomes")
+			listFilteredTransactions(getTransactionsByType("income"), "All Incomes")
 		case "expense":
-			list_filtered_transactions(getTransactionsByType("expense"), "All Expenses")
+			listFilteredTransactions(getTransactionsByType("expense"), "All Expenses")
 		case "category":
 			handleCategoryFilter()
 		case "categories":
@@ -168,67 +154,8 @@ func handleListTransactions() {
 			return
 		}
 	} else {
-		list_filtered_transactions(transactions, "All Transactions")
+		listFilteredTransactions(transactions, "All Transactions")
 	}
-}
-
-func getTransactionsByType(transactionType string) []Transaction {
-	var filtered []Transaction
-
-	for _, transac := range transactions {
-		if transac.Type == transactionType {
-			filtered = append(filtered, transac)
-		}
-	}
-	return filtered
-}
-
-func list_filtered_transactions(transaction_list []Transaction, title string) {
-	fmt.Printf("%s\n", title)
-	fmt.Printf("%s\n", strings.Repeat("=", len(title)))
-
-	if len(transaction_list) == 0 {
-		fmt.Println("No transactions found.")
-		return
-	}
-
-	var total_income, total_expense float64
-
-	for _, transaction := range transaction_list {
-		fmt.Printf("ID: %d | %s | %s | $%.2f | %s | %s\n",
-			transaction.ID,
-			transaction.Date.Format("2006-01-02 15:04"),
-			transaction.Type,
-			transaction.Amount,
-			transaction.Category,
-			transaction.Description)
-
-		if transaction.Type == "income" {
-			fmt.Println("asdf")
-			total_income += transaction.Amount
-		} else {
-			fmt.Println("asdf")
-			total_expense += transaction.Amount
-		}
-	}
-
-	fmt.Printf("\n--- Summary ---\n")
-	fmt.Printf("Total Income:  $%.2f\n", total_income)
-	fmt.Printf("Total Expenses: $%.2f\n", total_expense)
-	fmt.Printf("Net Amount:    $%.2f\n", total_income-total_expense)
-}
-
-func getCategories() []string {
-	categories_map := make(map[string]bool)
-	var categories []string
-
-	for _, transac := range transactions {
-		if !categories_map[transac.Category] {
-			categories_map[transac.Category] = true
-			categories = append(categories, transac.Category)
-		}
-	}
-	return categories
 }
 
 func handleCategoryFilter() {
@@ -247,7 +174,7 @@ func handleCategoryFilter() {
 	reader := bufio.NewReader(os.Stdin)
 	category := get_non_empty_string(reader, "Please Enter The Category Name You Want to Filtere:")
 	filtered := getTransactionsByCategory(category)
-	list_filtered_transactions(filtered, fmt.Sprintf("Transactions in category: %s", category))
+	listFilteredTransactions(filtered, fmt.Sprintf("Transactions in category: %s", category))
 
 }
 
@@ -276,44 +203,10 @@ func showCategories() {
 	}
 }
 
-func getTransactionsByCategory(category string) []Transaction {
-	category = strings.ToLower(category)
-	var filtered []Transaction
-
-	for _, transac := range transactions {
-		if strings.ToLower(transac.Category) == category {
-			filtered = append(filtered, transac)
-		}
-	}
-
-	return filtered
-}
-
-// Add a transaction to our storage
-func addTransaction(t Transaction) {
-	transactions = append(transactions, t)
-	nextTransactionID++
-}
-
 func parseDate(date_input string) (time.Time, error) {
 	layout := "2006-01-02"
 	date, err := time.Parse(layout, date_input)
 	return date, err
-}
-
-func getTransactionsByCustomRange(start, end time.Time) []Transaction {
-	var filtered []Transaction
-
-	for _, transac := range transactions {
-		// when doing comparision it also compare the time (hour, minute, second) so in that case even the start or end date is equal the transaction date the time will be
-		// most probable different. we know that start and end times are set to 0 for all hour, minute, and second so we do the same for transaction.
-		transacDate := time.Date(transac.Date.Year(), transac.Date.Month(), transac.Date.Day(), 0, 0, 0, 0, transac.Date.Location())
-
-		if (transacDate.Equal(start) || transacDate.After(start)) && (transacDate.Equal(end) || transacDate.Before(end)) {
-			filtered = append(filtered, transac)
-		}
-	}
-	return filtered
 }
 
 func handleCustomRange() {
@@ -356,7 +249,7 @@ func handleCustomRange() {
 
 	filtered := getTransactionsByCustomRange(start_date, end_date)
 	title := fmt.Sprintf("Transaction From %s to %s", start_date.Format("2006-01-02"), end_date.Format("2006-01-02"))
-	list_filtered_transactions(filtered, title)
+	listFilteredTransactions(filtered, title)
 }
 
 func handleAccounts() {
@@ -691,15 +584,6 @@ func handleDeleteAccount() {
 		}
 	}
 	fmt.Printf("Account ID %d not found!\n", accountId)
-}
-
-func findTransaction(transacId int) *Transaction {
-	for i := range transactions {
-		if transactions[i].ID == transacId {
-			return &transactions[i]
-		}
-	}
-	return nil
 }
 
 func handleEditTransaction() {
