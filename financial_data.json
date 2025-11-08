@@ -23,40 +23,19 @@
    "category": "kljadf",
    "description": "akladsf",
    "type": "income"
-  }
- ],
- "accounts": [
-  {
-   "id": 0,
-   "name": "test",
-   "balance": 437,
-   "created": "2025-11-07T04:55:26.585818515Z"
-  }
- ],
- "account_transactions": [
-  {
-   "id": 0,
-   "account_id": 0,
-   "amount": 213,
-   "date": "2025-11-07T04:55:53.234180986Z",
-   "note": ""
   },
   {
-   "id": 1,
-   "account_id": 0,
-   "amount": 11,
-   "date": "2025-11-07T04:58:24.35510202Z",
-   "note": ""
-  },
-  {
-   "id": 2,
-   "account_id": 0,
-   "amount": 213,
-   "date": "2025-11-07T05:09:07.490427981Z",
-   "note": ""
+   "id": 5,
+   "date": "2025-11-08T05:30:37.635295967Z",
+   "amount": 23,
+   "category": "cat",
+   "description": "slkd",
+   "type": "income"
   }
  ],
- "next_transaction_id": 5,
+ "accounts": [],
+ "account_transactions": null,
+ "next_transaction_id": 6,
  "next_account_id": 1,
  "next_account_transaction_id": 3
 }

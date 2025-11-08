@@ -10,52 +10,6 @@ import (
 	"time"
 )
 
-func get_valid_transaction_type(reader *bufio.Reader) string {
-	for {
-		fmt.Print("Type (Income/Expense): ")
-		input, _ := reader.ReadString('\n')
-		transaction_type := strings.ToLower(strings.TrimSpace(input))
-
-		if transaction_type == "income" || transaction_type == "expense" {
-			return transaction_type
-		}
-		fmt.Println("[Warning] Invalid type! Pleae Enter 'income' or 'expense'")
-	}
-}
-
-func get_valid_amount(reader *bufio.Reader) float64 {
-	for {
-		fmt.Print("Amount: $")
-		amount_input, _ := reader.ReadString('\n')
-		transcation_amount, err := strconv.ParseFloat(strings.TrimSpace(amount_input), 64)
-
-		if err != nil {
-			fmt.Println("Invalid amount, please enter a valid number (float/integer)")
-			continue
-		}
-
-		if transcation_amount <= 0 {
-			fmt.Println("Amount must be greater than 0")
-			continue
-		}
-
-		return transcation_amount
-	}
-}
-
-func get_non_empty_string(reader *bufio.Reader, prompt string) string {
-	for {
-		fmt.Print(prompt)
-		input, _ := reader.ReadString('\n')
-		text := strings.TrimSpace(input)
-
-		if text != "" {
-			return text
-		}
-		fmt.Println("[Warning] This Field Can Not Be Empty!")
-	}
-}
-
 func main() {
 	fmt.Println("=== Personal Financial Tracker ===")
 
@@ -105,10 +59,10 @@ func handleAddTransaction() {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Get validated inputs from users
-	transactionType := get_valid_transaction_type(reader)
-	amount := get_valid_amount(reader)
-	category := get_non_empty_string(reader, "Category: ")
-	description := get_non_empty_string(reader, "Description: ")
+	transactionType := getValidTransactionType(reader)
+	amount := getValidAmount(reader)
+	category := getNonEmptyString(reader, "Category: ")
+	description := getNonEmptyString(reader, "Description: ")
 
 	newTransaction := Transaction{
 		ID:          nextTransactionID,
@@ -172,7 +126,7 @@ func handleCategoryFilter() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	category := get_non_empty_string(reader, "Please Enter The Category Name You Want to Filtere:")
+	category := getNonEmptyString(reader, "Please Enter The Category Name You Want to Filtere:")
 	filtered := getTransactionsByCategory(category)
 	listFilteredTransactions(filtered, fmt.Sprintf("Transactions in category: %s", category))
 
@@ -201,12 +155,6 @@ func showCategories() {
 	for category, amount := range categoryTotal {
 		fmt.Printf("%s: %d Transactions | Total Income: %.2f | Total Expenses: %2.f | Total Amount: $%.2f\n", category, categoryCount[category], categoryIncome[category], categoryExpense[category], amount)
 	}
-}
-
-func parseDate(date_input string) (time.Time, error) {
-	layout := "2006-01-02"
-	date, err := time.Parse(layout, date_input)
-	return date, err
 }
 
 func handleCustomRange() {
@@ -288,7 +236,7 @@ func handleCreateAccount() {
 	fmt.Println("==================")
 
 	reader := bufio.NewReader(os.Stdin)
-	accountName := get_non_empty_string(reader, "Account Name: ")
+	accountName := getNonEmptyString(reader, "Account Name: ")
 
 	newAccount := Account{
 		ID:      nextAccountID,
@@ -333,10 +281,7 @@ func handleAddToAccount() {
 	handleListAccounts()
 
 	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println("\nEnter Account ID: ")
-	id_input, _ := reader.ReadString('\n')
-	id, err := strconv.Atoi(strings.TrimSpace(id_input))
+	id, err := getIntInput(reader, "\nEnter Account ID: ")
 
 	if err != nil {
 		fmt.Println("[Warning] Invalid Account ID!")
@@ -354,7 +299,7 @@ func handleAddToAccount() {
 		return
 	}
 
-	amountToAdd := get_valid_amount(reader)
+	amountToAdd := getValidAmount(reader)
 	fmt.Print("Note (Optional): ")
 	noteInput, _ := reader.ReadString('\n')
 	note := strings.TrimSpace(noteInput)
@@ -379,9 +324,7 @@ func handleAccountHistory() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Enter Account ID: ")
-	id_input, _ := reader.ReadString('\n')
-	id, err := strconv.Atoi(strings.TrimSpace(id_input))
+	id, err := getIntInput(reader, "Enter Account ID: ")
 
 	if err != nil || id < 0 || id > len(accounts) {
 		fmt.Println("[Error] Invalid ID. Please Enter An Integer In The Available Range!!!")
@@ -541,11 +484,9 @@ func handleDeleteAccount() {
 		return
 	}
 
-	fmt.Print("[Info] Are You SURE? This will delete all account hitory and all account transactions. (yes/anythin else considered as no): ")
-	confirm, _ := reader.ReadString('\n')
-	confirm = strings.ToLower(strings.TrimSpace(confirm))
+	doYouConfirm := getConfirmation(reader, "[Info] Are You SURE? This will delete all account hitory and all account transactions. (yes(y) or anythin else considered as no): ")
 
-	if confirm != "yes" {
+	if !doYouConfirm {
 		fmt.Println("Deletion cancelled.")
 		return
 	}
