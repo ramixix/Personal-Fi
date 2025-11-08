@@ -1,25 +1,62 @@
 {
  "transactions": [
   {
-   "id": 3,
-   "date": "2025-10-24T04:26:21.583448425Z",
-   "amount": 200,
-   "category": "food",
-   "description": "s",
-   "type": "income"
-  },
-  {
    "id": 4,
    "date": "2025-10-27T05:09:22.690971959Z",
    "amount": 123,
    "category": "asdf",
    "description": "adf",
    "type": "income"
+  },
+  {
+   "id": 3,
+   "date": "2025-11-02T05:41:18.410875394Z",
+   "amount": 234,
+   "category": "klasjdf",
+   "description": "klajsdf",
+   "type": "income"
+  },
+  {
+   "id": 4,
+   "date": "2025-11-02T05:42:24.628860468Z",
+   "amount": 234,
+   "category": "kljadf",
+   "description": "akladsf",
+   "type": "income"
   }
  ],
- "accounts": [],
- "account_transactions": null,
- "next_transaction_id": 0,
- "next_account_id": 0,
- "next_account_transaction_id": 0
+ "accounts": [
+  {
+   "id": 0,
+   "name": "test",
+   "balance": 437,
+   "created": "2025-11-07T04:55:26.585818515Z"
+  }
+ ],
+ "account_transactions": [
+  {
+   "id": 0,
+   "account_id": 0,
+   "amount": 213,
+   "date": "2025-11-07T04:55:53.234180986Z",
+   "note": ""
+  },
+  {
+   "id": 1,
+   "account_id": 0,
+   "amount": 11,
+   "date": "2025-11-07T04:58:24.35510202Z",
+   "note": ""
+  },
+  {
+   "id": 2,
+   "account_id": 0,
+   "amount": 213,
+   "date": "2025-11-07T05:09:07.490427981Z",
+   "note": ""
+  }
+ ],
+ "next_transaction_id": 5,
+ "next_account_id": 1,
+ "next_account_transaction_id": 3
 }

@@ -343,41 +343,24 @@ func handleAddToAccount() {
 		return
 	}
 
-	if id > len(accounts) || id <= 0 {
+	if id > len(accounts) || id < 0 {
 		fmt.Printf("[Warning] Please Pay Attention to Range of Accounts Available %d-%d\n", 0, len(accounts)-1)
 		return
 	}
 
-	accountIndex := -1
-	for index, account := range accounts {
-		if account.ID == id {
-			accountIndex = index
-			break
-		}
+	account := findAccount(id)
+	if account == nil {
+		fmt.Println("Account Not found")
+		return
 	}
 
-	// if  accountIndex == -1 {
-	// 	fmt.Println("Account Not Found")
-	// }
 	amountToAdd := get_valid_amount(reader)
 	fmt.Print("Note (Optional): ")
 	noteInput, _ := reader.ReadString('\n')
 	note := strings.TrimSpace(noteInput)
 
-	accounts[accountIndex].Balance += amountToAdd
-
-	new_account_transaction := AccountTransaction{
-		ID:        nextAccountTransactionID,
-		AccountID: id,
-		Amount:    amountToAdd,
-		Date:      time.Now(),
-		Note:      note,
-	}
-
-	accountTransactions = append(accountTransactions, new_account_transaction)
-	nextAccountTransactionID++
-
-	fmt.Printf("✓ Added $%.2f to '%s'. New balance: $%.2f\n", amountToAdd, accounts[accountIndex].Name, accounts[accountIndex].Balance)
+	addMoneyToAccount(account, amountToAdd, note)
+	fmt.Printf("✓ Added $%.2f to '%s'. New balance: $%.2f\n", amountToAdd, account.Name, account.Balance)
 }
 
 func handleAccountHistory() {
@@ -400,18 +383,18 @@ func handleAccountHistory() {
 	id_input, _ := reader.ReadString('\n')
 	id, err := strconv.Atoi(strings.TrimSpace(id_input))
 
-	if err != nil || id <= 0 || id > len(accounts) {
+	if err != nil || id < 0 || id > len(accounts) {
 		fmt.Println("[Error] Invalid ID. Please Enter An Integer In The Available Range!!!")
 		return
 	}
-	fmt.Printf("\n%d\n", id)
+
 	var accountName string
-	for _, account := range accounts {
-		if account.ID == id {
-			accountName = account.Name
-			break
-		}
+	account := findAccount(id)
+	if account == nil {
+		fmt.Println("No Account Found!")
+		return
 	}
+	accountName = account.Name
 
 	fmt.Printf("\nHistory for Account %s:\n", accountName)
 	fmt.Println(strings.Repeat("=", len(accountName)+20))
@@ -492,10 +475,10 @@ func handleDeleteTransaction() {
 
 	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(transactions))
 	transactionsToShow := 10
-	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nTo see a different number, enter it.\nType 'all' to display all transactions.")
+	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nTo see a different number, enter it.\nType 'all' to display all transactions. Enter: ")
 
 	reader := bufio.NewReader(os.Stdin)
-	getTransactionNumberToShow(reader, transactionsToShow)
+	transactionsToShow = getTransactionNumberToShow(reader, transactionsToShow)
 
 	startingIndex := len(transactions) - transactionsToShow
 	if startingIndex < 0 {
@@ -521,14 +504,12 @@ func handleDeleteTransaction() {
 		return
 	}
 
-	for i := startingIndex; i < len(transactions); i++ {
-		if transacId == transactions[i].ID {
-			transactions = append(transactions[:i], transactions[i+1:]...)
-			fmt.Printf("✓ Transaction ID %d deleted successfully!\n", transacId)
-			return
-		}
+	isTransactionDeleted := deleteTransaction(startingIndex, transacId)
+	if isTransactionDeleted {
+		fmt.Printf("✓ Transaction ID %d deleted successfully!\n", transacId)
+		return
 	}
-	fmt.Printf("Transaction ID %d not found!\n", transacId)
+	fmt.Printf("Transaction ID %d is not in the list please choice an ID that presented in the list!\n", transacId)
 
 }
 
@@ -569,19 +550,10 @@ func handleDeleteAccount() {
 		return
 	}
 
-	for index, ac := range accounts {
-		if ac.ID == accountId {
-			var filteredAccountTransactions []AccountTransaction
-			for _, account_transac := range accountTransactions {
-				if account_transac.AccountID != accountId {
-					filteredAccountTransactions = append(filteredAccountTransactions, account_transac)
-				}
-			}
-			accountTransactions = filteredAccountTransactions
-			accounts = append(accounts[:index], accounts[index+1:]...)
-			fmt.Printf("✓ Account ID %d deleted successfully!\n", accountId)
-			return
-		}
+	isDeleted := deleteAccount(accountId)
+	if isDeleted {
+		fmt.Printf("✓ Account ID %d deleted successfully!\n", accountId)
+		return
 	}
 	fmt.Printf("Account ID %d not found!\n", accountId)
 }

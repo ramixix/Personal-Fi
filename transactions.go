@@ -13,9 +13,11 @@ func addTransaction(t Transaction) {
 }
 
 // Delete a transaction by ID
-func deleteTransaction(id int) bool {
-	for i, transaction := range transactions {
-		if transaction.ID == id {
+// inside handleDeleteTransaction i can call this function at the end of the function but
+// in orginal code i start from starting index so that is faster i think.
+func deleteTransaction(startingIndex int, id int) bool {
+	for i := startingIndex; i < len(transactions); i++ {
+		if transactions[i].ID == id {
 			// Remove transaction from slice
 			transactions = append(transactions[:i], transactions[i+1:]...)
 			return true
