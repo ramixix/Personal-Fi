@@ -3,14 +3,14 @@
   {
    "id": 4,
    "date": "2025-10-27T05:09:22.690971959Z",
-   "amount": 123,
+   "amount": 321,
    "category": "asdf",
    "description": "adf",
    "type": "income"
   },
   {
    "id": 3,
-   "date": "2025-11-02T05:41:18.410875394Z",
+   "date": "2011-01-22T00:00:00Z",
    "amount": 234,
    "category": "klasjdf",
    "description": "klajsdf",
@@ -27,10 +27,10 @@
   {
    "id": 5,
    "date": "2025-11-08T05:30:37.635295967Z",
-   "amount": 23,
-   "category": "cat",
+   "amount": 6666,
+   "category": "tac",
    "description": "slkd",
-   "type": "income"
+   "type": "expense"
   }
  ],
  "accounts": [],

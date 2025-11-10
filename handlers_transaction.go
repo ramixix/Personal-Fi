@@ -260,5 +260,71 @@ func handleEditTransaction() {
 		fmt.Printf("Transaction ID %d not found!\n", transacId)
 		return
 	}
-	// .... continue
+
+	fmt.Printf("\n--- Editing Transaction ID %d ---\n", transacId)
+	fmt.Println("Press Enter to keep current value")
+
+	// Edit type
+	fmt.Printf("Type income/expnese (current %s)", transac.Type)
+	typeInput, _ := reader.ReadString('\n')
+	typeInput = strings.TrimSpace(typeInput)
+	if typeInput != "" {
+		typeInput = strings.ToLower(typeInput)
+		if typeInput == "income" || typeInput == "expense" {
+			transac.Type = typeInput
+		} else {
+			fmt.Println("Invalid type, keeping current value")
+		}
+	}
+
+	// Edit Amount
+	fmt.Printf("Amount (current: $%.2f): ", transac.Amount)
+	amountInput, _ := reader.ReadString('\n')
+	amountInput = strings.TrimSpace(amountInput)
+	if amountInput != "" {
+		amount, err := strconv.ParseFloat(amountInput, 64)
+		if err == nil && amount > 0 {
+			transac.Amount = amount
+		} else {
+			fmt.Println("Invalid amount, keeping current value")
+		}
+	}
+
+	// Edit category
+	fmt.Printf("Category (current: %s): ", transac.Category)
+	categoryInput, _ := reader.ReadString('\n')
+	categoryInput = strings.TrimSpace(categoryInput)
+	if categoryInput != "" {
+		transac.Category = categoryInput
+	}
+
+	// Edit description
+	fmt.Printf("Description (current: %s): ", transac.Description)
+	descInput, _ := reader.ReadString('\n')
+	descInput = strings.TrimSpace(descInput)
+	if descInput != "" {
+		transac.Description = descInput
+	}
+
+	// Edit date
+	fmt.Printf("Date (current: %s, format YYYY-MM-DD): ", transac.Date.Format("2006-01-02"))
+	dateInput, _ := reader.ReadString('\n')
+	dateInput = strings.TrimSpace(dateInput)
+	if dateInput != "" {
+		newDate, err := parseDate(dateInput)
+		if err == nil {
+			transac.Date = newDate
+		} else {
+			fmt.Println("Invalid date format, keeping current value")
+		}
+	}
+
+	fmt.Printf("\n✓ Transaction ID %d updated successfully!\n", transacId)
+	fmt.Printf("Updated: %s | %s | $%.2f | %s | %s\n",
+		transac.Date.Format("2006-01-02"),
+		transac.Type,
+		transac.Amount,
+		transac.Category,
+		transac.Description)
+
 }
