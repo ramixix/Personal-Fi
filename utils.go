@@ -75,3 +75,32 @@ func getIntInput(reader *bufio.Reader, prompt string) (int, error) {
 	input, _ := reader.ReadString('\n')
 	return strconv.Atoi(strings.TrimSpace(input))
 }
+
+func getTransactionNumberToShow(reader *bufio.Reader, defaultValue int) int {
+	transactionsToShow := defaultValue
+InputLoop:
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		switch input {
+		case "":
+			fmt.Printf("\nDisplaying %d Recent transactions:\n", transactionsToShow)
+			break InputLoop
+		case "all":
+			fmt.Println("\nDisplaying All transactions:")
+			transactionsToShow = len(transactions)
+			break InputLoop
+		default:
+			number, err := strconv.Atoi(input)
+			if err != nil || number <= 0 {
+				fmt.Println("[Warning] Not a Valid Number, Try Again.")
+				continue
+			}
+			fmt.Printf("\nDisplaying Last %d Transactions:\n", number)
+			transactionsToShow = number
+			break InputLoop
+		}
+	}
+	return transactionsToShow
+}
