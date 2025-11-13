@@ -128,7 +128,7 @@ func calculateTotals() (totalIncome, totalExpenses float64) {
 }
 
 // Get monthly average income and expneses
-func getMontlyAverage() (float64, float64) {
+func getMonthlyAverage() (avgIncome float64, avgExpenses float64) {
 
 	var oldestDate, newestDate time.Time
 	for i, transac := range transactions {
@@ -154,8 +154,8 @@ func getMontlyAverage() (float64, float64) {
 	}
 
 	totalIncome, totalExpenses := calculateTotals()
-	avgIncome := totalIncome / float64(totalMonths)
-	avgExpenses := totalExpenses / float64(totalMonths)
+	avgIncome = totalIncome / float64(totalMonths)
+	avgExpenses = totalExpenses / float64(totalMonths)
 
 	return avgIncome, avgExpenses
 }
