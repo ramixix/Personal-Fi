@@ -29,12 +29,12 @@ func main() {
 		handleAddTransaction()
 	case "list":
 		handleListTransactions()
-	case "accounts":
-		handleAccounts()
-	case "delete":
-		handleDelete()
 	case "edit":
 		handleEditTransaction()
+	case "delete":
+		handleDelete()
+	case "accounts":
+		handleAccounts()
 	case "summary":
 		hadleSummary()
 	case "export":

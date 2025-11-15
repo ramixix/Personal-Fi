@@ -18,15 +18,26 @@ var nextTransactionID = 1
 var nextAccountID = 1
 var nextAccountTransactionID = 1
 
+// Goals variables
+var goals []Goal
+var goalContributions []GoalContribution
+
+var nextGoalID = 1
+var nextGoalContributionID = 1
+
 // Save all data to JSON file
 func saveData() error {
 	data := AppData{
 		Transactions:             transactions,
 		Accounts:                 accounts,
 		AccountTransactions:      accountTransactions,
+		Goals:                    goals,
+		GoalContributions:        goalContributions,
 		NextTransactionID:        nextTransactionID,
 		NextAccountID:            nextAccountID,
 		NextAccountTransactionID: nextAccountTransactionID,
+		NextGoalID:               nextGoalID,
+		NextGoalContributionID:   nextGoalContributionID,
 	}
 
 	dataJsonFormat, err := json.MarshalIndent(data, "", " ")
@@ -68,6 +79,10 @@ func loadData() error {
 	nextTransactionID = data.NextTransactionID
 	nextAccountID = data.NextAccountID
 	nextAccountTransactionID = data.NextAccountTransactionID
+	goals = data.Goals
+	goalContributions = data.GoalContributions
+	nextGoalID = data.NextGoalID
+	nextGoalContributionID = data.NextGoalContributionID
 
 	return nil
 }

@@ -67,7 +67,11 @@
  ],
  "accounts": [],
  "account_transactions": null,
+ "goals": null,
+ "goal_contributions": null,
  "next_transaction_id": 11,
  "next_account_id": 1,
- "next_account_transaction_id": 3
+ "next_account_transaction_id": 3,
+ "next_goal_id": 0,
+ "next_goal_contribution_id": 0
 }
