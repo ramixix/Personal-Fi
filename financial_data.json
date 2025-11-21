@@ -67,11 +67,36 @@
  ],
  "accounts": [],
  "account_transactions": null,
- "goals": null,
- "goal_contributions": null,
+ "goals": [
+  {
+   "id": 0,
+   "name": "Ielts",
+   "description": "money for ielts exam",
+   "target_amount": 9500,
+   "current_amount": 3000,
+   "deadline": "2025-12-30T00:00:00Z",
+   "has_deadline": true,
+   "category": "purchase",
+   "priority": "medium",
+   "status": "active",
+   "linked_account_id": 0,
+   "created": "2025-11-21T06:00:17.643515223Z",
+   "completed_date": "0001-01-01T00:00:00Z"
+  }
+ ],
+ "goal_contributions": [
+  {
+   "id": 0,
+   "goal_id": 0,
+   "amount": 3000,
+   "date": "2025-11-21T06:02:14.286116636Z",
+   "note": "",
+   "automatic": false
+  }
+ ],
  "next_transaction_id": 11,
  "next_account_id": 1,
  "next_account_transaction_id": 3,
- "next_goal_id": 0,
- "next_goal_contribution_id": 0
+ "next_goal_id": 1,
+ "next_goal_contribution_id": 1
 }

@@ -29,7 +29,7 @@ func findGoalIndex(id int) int {
 }
 
 // Delete goal by ID, Also delete all goal contributions for the specified goal
-func delteGoal(id int) bool {
+func deleteGoal(id int) bool {
 	for i := range goals {
 		if goals[i].ID == id {
 			var filteredGoalContributions []GoalContribution

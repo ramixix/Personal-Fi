@@ -114,6 +114,7 @@ func showHelp() {
 	fmt.Println("  accounts  		Manage accounts (accounts help => to see what commands you can run with accounts)")
 	fmt.Println("  delete			Delete transaction or accounts. ''/'delete help' => to show the options.")
 	fmt.Println("  edit             Edit an existing transaction")
+	fmt.Println("  goals         	Manage goals (create, list, contribute, view)")
 	fmt.Println("  summary       	Show financial summary and statistics")
 	fmt.Println("  export        	Export data to CSV files")
 	fmt.Println("  import        	Import data from CSV files")

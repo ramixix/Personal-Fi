@@ -35,6 +35,8 @@ func main() {
 		handleDelete()
 	case "accounts":
 		handleAccounts()
+	case "goals":
+		handleGoals()
 	case "summary":
 		hadleSummary()
 	case "export":
