@@ -71,3 +71,15 @@ type GoalContribution struct {
 	Note      string    `json:"note"`
 	Automatic bool      `json:"automatic"` // Was it automatically tracked or manual?
 }
+
+// SearchCriteria holds multiple search parameters
+type SearchCriteria struct {
+	Keyword         string
+	Categories      []string
+	TransactionType string // "income", "expense", or "" for both
+	MinAmount       float64
+	MaxAmount       float64
+	StartDate       time.Time
+	EndDate         time.Time
+	HasDateRange    bool
+}
