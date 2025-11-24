@@ -229,7 +229,7 @@ func handleEditTransaction() {
 	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nTo see a different number, enter it.\nType 'all' to display all transactions.")
 
 	reader := bufio.NewReader(os.Stdin)
-	getTransactionNumberToShow(reader, transactionsToShow)
+	transactionsToShow = getTransactionNumberToShow(reader, transactionsToShow)
 
 	startingIndex := len(transactions) - transactionsToShow
 	if startingIndex < 0 {
