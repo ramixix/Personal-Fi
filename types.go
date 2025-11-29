@@ -45,6 +45,11 @@ type AppData struct {
 	NextGoalContributionID   int                  `json:"next_goal_contribution_id"`
 }
 
+// =================================================
+//
+//	Goal Related Structs (Mostly used in goal.go)
+//
+// ================================================
 // Goal represents a financial goal
 type Goal struct {
 	ID              int       `json:"id"`
@@ -72,7 +77,9 @@ type GoalContribution struct {
 	Automatic bool      `json:"automatic"` // Was it automatically tracked or manual?
 }
 
-// SearchCriteria holds multiple search parameters
+// =================================================
+// SearchCriteria holds multiple search parameters. Used in search.go files mostly
+// =================================================
 type SearchCriteria struct {
 	Keyword         string
 	Categories      []string
@@ -82,4 +89,39 @@ type SearchCriteria struct {
 	StartDate       time.Time
 	EndDate         time.Time
 	HasDateRange    bool
+}
+
+// ====================================================================
+//
+//	Report and Analytics Related Structs (Mostly used in analytics.go)
+//
+// ===================================================================
+// MonthlyReport represents financial data for a specific month
+type MonthlyReport struct {
+	Year     int
+	Month    time.Month
+	Income   float64
+	Expenses float64
+	Net      float64
+	TxCount  int
+}
+
+// CategoryReport represents spending/income for a category
+type CategoryReport struct {
+	Category string
+	Amount   float64
+	Count    int
+	Percent  float64
+}
+
+// ComparisonReport represents comparison between two periods
+type ComparisonReport struct {
+	Period1Income   float64
+	Period2Income   float64
+	Period1Expenses float64
+	Period2Expenses float64
+	IncomeChange    float64
+	ExpenseChange   float64
+	IncomePercent   float64
+	ExpensePercent  float64
 }
