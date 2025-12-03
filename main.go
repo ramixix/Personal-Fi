@@ -39,6 +39,8 @@ func main() {
 		handleGoals()
 	case "search":
 		handleSearch()
+	case "reports":
+		handleReports()
 	case "summary":
 		hadleSummary()
 	case "export":

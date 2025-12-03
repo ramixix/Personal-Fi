@@ -33,7 +33,7 @@ func getMonthlyReports() []MonthlyReport {
 	}
 
 	for i := 0; i < len(reports); i++ {
-		for j := i + 1; j < len(reports); i++ {
+		for j := i + 1; j < len(reports); j++ {
 			time1 := time.Date(reports[i].Year, reports[i].Month, 1, 0, 0, 0, 0, time.UTC)
 			time2 := time.Date(reports[j].Year, reports[j].Month, 1, 0, 0, 0, 0, time.UTC)
 			if time2.Before(time1) {
@@ -64,6 +64,44 @@ func getMonthReport(year int, month time.Month) MonthlyReport {
 
 	report.Net = report.Income - report.Expenses
 	return report
+}
+
+func getYearlyReports() []MonthlyReport {
+	yearlyData := make(map[int]*MonthlyReport)
+
+	for _, transac := range transactions {
+		var key int = transac.Date.Year()
+
+		// Initialize if not exists
+		_, exists := yearlyData[key]
+		if !exists {
+			yearlyData[key] = &MonthlyReport{Year: transac.Date.Year()}
+		}
+		// Update totals
+		if transac.Type == "income" {
+			yearlyData[key].Income += transac.Amount
+		} else {
+			yearlyData[key].Expenses += transac.Amount
+		}
+		yearlyData[key].TxCount++
+	}
+
+	// Convert map to slice and calculate net
+	var reports []MonthlyReport
+	for _, report := range yearlyData {
+		report.Net = report.Income - report.Expenses
+		reports = append(reports, *report)
+	}
+
+	for i := 0; i < len(reports); i++ {
+		for j := i + 1; j < len(reports); j++ {
+			if reports[i].Year > reports[j].Year {
+				reports[i], reports[j] = reports[j], reports[i]
+			}
+		}
+	}
+
+	return reports
 }
 
 // Get category breakdown report

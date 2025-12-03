@@ -98,7 +98,7 @@ type SearchCriteria struct {
 // ===================================================================
 // MonthlyReport represents financial data for a specific month
 type MonthlyReport struct {
-	Year     int
+	Year     int // because time.Date.Year() function returns int
 	Month    time.Month
 	Income   float64
 	Expenses float64

@@ -117,6 +117,7 @@ func showHelp() {
 	fmt.Println("  goals         	Manage goals (create, list, contribute, view)")
 	fmt.Println("  search        	Search and filter transactions")
 	fmt.Println("  summary       	Show financial summary and statistics")
+	fmt.Println("  reports       	Generate reports and analytics")
 	fmt.Println("  export        	Export data to CSV files")
 	fmt.Println("  import        	Import data from CSV files")
 }
