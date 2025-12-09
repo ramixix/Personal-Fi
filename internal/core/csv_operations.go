@@ -1,14 +1,17 @@
-package main
+package core
 
 import (
 	"encoding/csv"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
 	"strconv"
 )
 
 // Export transactions to CSV
-func exportTransactionsToCSV(filename string) error {
+func ExportTransactionsToCSV(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -25,7 +28,7 @@ func exportTransactionsToCSV(filename string) error {
 	}
 
 	// Write data
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		record := []string{
 			strconv.Itoa(transaction.ID),
 			transaction.Date.Format("2006-01-02"),
@@ -43,7 +46,7 @@ func exportTransactionsToCSV(filename string) error {
 }
 
 // Export accounts to CSV
-func exportAccountsToCSV(filename string) error {
+func ExportAccountsToCSV(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -60,7 +63,7 @@ func exportAccountsToCSV(filename string) error {
 	}
 
 	// Write data
-	for _, account := range accounts {
+	for _, account := range storage.Accounts {
 		record := []string{
 			strconv.Itoa(account.ID),
 			account.Name,
@@ -76,7 +79,7 @@ func exportAccountsToCSV(filename string) error {
 }
 
 // Export account transactions to CSV
-func exportAccountTransactionsToCSV(filename string) error {
+func ExportAccountTransactionsToCSV(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -93,10 +96,10 @@ func exportAccountTransactionsToCSV(filename string) error {
 	}
 
 	// Write data
-	for _, at := range accountTransactions {
+	for _, at := range storage.AccountTransactions {
 		// Find account name
 		accountName := "Unknown"
-		for _, acc := range accounts {
+		for _, acc := range storage.Accounts {
 			if acc.ID == at.AccountID {
 				accountName = acc.Name
 				break
@@ -120,7 +123,7 @@ func exportAccountTransactionsToCSV(filename string) error {
 }
 
 // Import transactions from CSV
-func importTransactionsFromCSV(filename string) error {
+func ImportTransactionsFromCSV(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -153,15 +156,15 @@ func importTransactionsFromCSV(filename string) error {
 			continue
 		}
 
-		date, err := parseDate(record[1])
+		date, err := utils.ParseDate(record[1])
 		if err != nil {
 			fmt.Printf("Warning: Skipping invalid date in row: %v\n", record)
 			continue
 		}
 
 		// Create transaction
-		transaction := Transaction{
-			ID:          nextTransactionID,
+		transaction := models.Transaction{
+			ID:          storage.NextTransactionID,
 			Date:        date,
 			Type:        record[2],
 			Amount:      amount,
@@ -169,15 +172,15 @@ func importTransactionsFromCSV(filename string) error {
 			Description: record[5],
 		}
 
-		transactions = append(transactions, transaction)
-		nextTransactionID++
+		storage.Transactions = append(storage.Transactions, transaction)
+		storage.NextTransactionID++
 	}
 
 	return nil
 }
 
 // Import accounts from CSV
-func importAccountsFromCSV(filename string) error {
+func ImportAccountsFromCSV(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -209,21 +212,21 @@ func importAccountsFromCSV(filename string) error {
 			continue
 		}
 
-		created, err := parseDate(record[3])
+		created, err := utils.ParseDate(record[3])
 		if err != nil {
 			fmt.Printf("Warning: Skipping invalid date in row: %v\n", record)
 			continue
 		}
 
-		account := Account{
-			ID:      nextAccountID,
+		account := models.Account{
+			ID:      storage.NextAccountID,
 			Name:    record[1],
 			Balance: balance,
 			Created: created,
 		}
 
-		accounts = append(accounts, account)
-		nextAccountID++
+		storage.Accounts = append(storage.Accounts, account)
+		storage.NextAccountID++
 	}
 
 	return nil

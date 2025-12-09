@@ -1,20 +1,22 @@
-package main
+package core
 
 import (
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
 	"fmt"
 	"time"
 )
 
-func getMonthlyReports() []MonthlyReport {
-	monthlyData := make(map[string]*MonthlyReport)
+func GetMonthlyReports() []models.MonthlyReport {
+	monthlyData := make(map[string]*models.MonthlyReport)
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		var key string = fmt.Sprintf("%d-%02d", transac.Date.Year(), transac.Date.Month())
 
 		// Initialize if not exists
 		_, exists := monthlyData[key]
 		if !exists {
-			monthlyData[key] = &MonthlyReport{Year: transac.Date.Year(), Month: transac.Date.Month()}
+			monthlyData[key] = &models.MonthlyReport{Year: transac.Date.Year(), Month: transac.Date.Month()}
 		}
 		// Update totals
 		if transac.Type == "income" {
@@ -26,7 +28,7 @@ func getMonthlyReports() []MonthlyReport {
 	}
 
 	// Convert map to slice and calculate net
-	var reports []MonthlyReport
+	var reports []models.MonthlyReport
 	for _, report := range monthlyData {
 		report.Net = report.Income - report.Expenses
 		reports = append(reports, *report)
@@ -45,37 +47,37 @@ func getMonthlyReports() []MonthlyReport {
 }
 
 // Get report for a specific month
-func getMonthReport(year int, month time.Month) MonthlyReport {
-	report := MonthlyReport{
-		Year:  year,
-		Month: month,
-	}
+// func getMonthReport(year int, month time.Month) models.MonthlyReport {
+// 	report := models.MonthlyReport{
+// 		Year:  year,
+// 		Month: month,
+// 	}
 
-	for _, transaction := range transactions {
-		if transaction.Date.Year() == year && transaction.Date.Month() == month {
-			if transaction.Type == "income" {
-				report.Income += transaction.Amount
-			} else {
-				report.Expenses += transaction.Amount
-			}
-			report.TxCount++
-		}
-	}
+// 	for _, transaction := range storage.Transactions {
+// 		if transaction.Date.Year() == year && transaction.Date.Month() == month {
+// 			if transaction.Type == "income" {
+// 				report.Income += transaction.Amount
+// 			} else {
+// 				report.Expenses += transaction.Amount
+// 			}
+// 			report.TxCount++
+// 		}
+// 	}
 
-	report.Net = report.Income - report.Expenses
-	return report
-}
+// 	report.Net = report.Income - report.Expenses
+// 	return report
+// }
 
-func getYearlyReports() []MonthlyReport {
-	yearlyData := make(map[int]*MonthlyReport)
+func GetYearlyReports() []models.MonthlyReport {
+	yearlyData := make(map[int]*models.MonthlyReport)
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		var key int = transac.Date.Year()
 
 		// Initialize if not exists
 		_, exists := yearlyData[key]
 		if !exists {
-			yearlyData[key] = &MonthlyReport{Year: transac.Date.Year()}
+			yearlyData[key] = &models.MonthlyReport{Year: transac.Date.Year()}
 		}
 		// Update totals
 		if transac.Type == "income" {
@@ -87,7 +89,7 @@ func getYearlyReports() []MonthlyReport {
 	}
 
 	// Convert map to slice and calculate net
-	var reports []MonthlyReport
+	var reports []models.MonthlyReport
 	for _, report := range yearlyData {
 		report.Net = report.Income - report.Expenses
 		reports = append(reports, *report)
@@ -105,11 +107,11 @@ func getYearlyReports() []MonthlyReport {
 }
 
 // Get category breakdown report
-func getCategoryBreakdown(transactionType string) []CategoryReport {
-	categoryData := make(map[string]*CategoryReport)
+func GetCategoryBreakdown(transactionType string) []models.CategoryReport {
+	categoryData := make(map[string]*models.CategoryReport)
 
 	var total float64
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		if transactionType != "" && transac.Type != transactionType {
 			continue
 		}
@@ -117,7 +119,7 @@ func getCategoryBreakdown(transactionType string) []CategoryReport {
 		var transactionCategory string = transac.Category
 		_, doesExists := categoryData[transactionCategory]
 		if !doesExists {
-			categoryData[transactionCategory] = &CategoryReport{Category: transactionCategory}
+			categoryData[transactionCategory] = &models.CategoryReport{Category: transactionCategory}
 		}
 		categoryData[transactionCategory].Amount = transac.Amount
 		categoryData[transactionCategory].Count++
@@ -125,7 +127,7 @@ func getCategoryBreakdown(transactionType string) []CategoryReport {
 	}
 
 	// Convert to slice and calculate percentages
-	var reports []CategoryReport
+	var reports []models.CategoryReport
 	for _, report := range categoryData {
 		if total > 0 {
 			report.Percent = (report.Amount / total) * 100
@@ -146,10 +148,10 @@ func getCategoryBreakdown(transactionType string) []CategoryReport {
 }
 
 // Compare two time periods
-func comparePeriods(start1, end1, start2, end2 time.Time) ComparisonReport {
-	var report ComparisonReport
+func ComparePeriods(start1, end1, start2, end2 time.Time) models.ComparisonReport {
+	var report models.ComparisonReport
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		// Period 1
 		if (transaction.Date.After(start1) || transaction.Date.Equal(start1)) &&
 			(transaction.Date.Before(end1) || transaction.Date.Equal(end1)) {
@@ -187,40 +189,40 @@ func comparePeriods(start1, end1, start2, end2 time.Time) ComparisonReport {
 }
 
 // Get year-over-year comparison
-func getYearOverYearComparison(year1, year2 int) ComparisonReport {
+func GetYearOverYearComparison(year1, year2 int) models.ComparisonReport {
 	start1 := time.Date(year1, 1, 1, 0, 0, 0, 0, time.UTC)
 	end1 := time.Date(year1, 12, 31, 23, 59, 59, 0, time.UTC)
 	start2 := time.Date(year2, 1, 1, 0, 0, 0, 0, time.UTC)
 	end2 := time.Date(year2, 12, 31, 23, 59, 59, 0, time.UTC)
 
-	return comparePeriods(start1, end1, start2, end2)
+	return ComparePeriods(start1, end1, start2, end2)
 }
 
 // Get month-over-month comparison
-func getMonthOverMonthComparison(year1 int, month1 time.Month, year2 int, month2 time.Month) ComparisonReport {
+func GetMonthOverMonthComparison(year1 int, month1 time.Month, year2 int, month2 time.Month) models.ComparisonReport {
 	start1 := time.Date(year1, month1, 1, 0, 0, 0, 0, time.UTC)
 	end1 := time.Date(year1, month1+1, 0, 23, 59, 59, 0, time.UTC) // Last day of month
 	start2 := time.Date(year2, month2, 1, 0, 0, 0, 0, time.UTC)
 	end2 := time.Date(year2, month2+1, 0, 23, 59, 59, 0, time.UTC)
 
-	return comparePeriods(start1, end1, start2, end2)
+	return ComparePeriods(start1, end1, start2, end2)
 }
 
 // Get quarterly report
-func getQuarterlyReport(year int, quarter int) MonthlyReport {
+func GetQuarterlyReport(year int, quarter int) models.MonthlyReport {
 	if quarter < 1 || quarter > 4 {
-		return MonthlyReport{}
+		return models.MonthlyReport{}
 	}
 
 	startMonth := time.Month((quarter-1)*3 + 1)
 	endMonth := time.Month(quarter * 3)
 
-	report := MonthlyReport{
+	report := models.MonthlyReport{
 		Year:  year,
 		Month: startMonth, // Represents start of quarter
 	}
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		if transaction.Date.Year() != year {
 			continue
 		}
@@ -241,11 +243,11 @@ func getQuarterlyReport(year int, quarter int) MonthlyReport {
 }
 
 // Get average transaction amount by category
-func getAverageAmountByCategory(category string, transactionType string) float64 {
+func GetAverageAmountByCategory(category string, transactionType string) float64 {
 	var total float64
 	var count int
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		if transac.Type == transactionType || transactionType == "" {
 			if transac.Category == category {
 				total += transac.Amount
@@ -261,11 +263,11 @@ func getAverageAmountByCategory(category string, transactionType string) float64
 }
 
 // Detect anomalies (unusually high spending)
-func detectHighSpending(threshold float64) []Transaction {
+func DetectHighSpending(threshold float64) []models.Transaction {
 	var total float64
 	expenseCount := 0
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		if transaction.Type == "expense" {
 			total += transaction.Amount
 			expenseCount++
@@ -273,15 +275,15 @@ func detectHighSpending(threshold float64) []Transaction {
 	}
 
 	if expenseCount == 0 {
-		return []Transaction{}
+		return []models.Transaction{}
 	}
 
 	average := total / float64(expenseCount)
 	anomalyThreshold := average * threshold
 
 	// Find transactions above threshold
-	var anomalies []Transaction
-	for _, transaction := range transactions {
+	var anomalies []models.Transaction
+	for _, transaction := range storage.Transactions {
 		if transaction.Type == "expense" && transaction.Amount > anomalyThreshold {
 			anomalies = append(anomalies, transaction)
 		}
@@ -290,8 +292,8 @@ func detectHighSpending(threshold float64) []Transaction {
 }
 
 // Get spending trend (increasing, decreasing, stable)
-func getCategoryTrend(category string, months int) string {
-	if len(transactions) == 0 {
+func GetCategoryTrend(category string, months int) string {
+	if len(storage.Transactions) == 0 {
 		return "insufficient data"
 	}
 
@@ -303,7 +305,7 @@ func getCategoryTrend(category string, months int) string {
 	monthlySpending := make(map[string]*MonthData)
 	cutoffDate := time.Now().AddDate(0, -months, 0)
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		if transaction.Type != "expense" {
 			continue
 		}

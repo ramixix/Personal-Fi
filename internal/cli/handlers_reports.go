@@ -1,7 +1,11 @@
-package main
+package cli
 
 import (
 	"bufio"
+	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,12 +58,12 @@ func handleMonthlyReport() {
 	fmt.Println("Monthly Financial Reports")
 	fmt.Println("=========================")
 
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("No transactions available.")
 		return
 	}
 
-	var reports []MonthlyReport = getMonthlyReports()
+	var reports []models.MonthlyReport = core.GetMonthlyReports()
 
 	if len(reports) == 0 {
 		fmt.Println("No monthly data available.")
@@ -122,7 +126,7 @@ func handleQuarterlyReport() {
 	fmt.Println("===========================")
 
 	reader := bufio.NewReader(os.Stdin)
-	year, err := getIntInput(reader, "Enter Year: ")
+	year, err := utils.GetIntInput(reader, "Enter Year: ")
 	if err != nil {
 		fmt.Println("Invalid year!")
 		return
@@ -137,7 +141,7 @@ func handleQuarterlyReport() {
 	var totalTx int
 
 	for quarter := 1; quarter <= 4; quarter++ {
-		quarterReport := getQuarterlyReport(year, quarter)
+		quarterReport := core.GetQuarterlyReport(year, quarter)
 
 		netSymbol := ""
 		if quarterReport.Net >= 0 {
@@ -167,12 +171,12 @@ func handleYearlyReport() {
 	fmt.Println("Yearly Financial Reports")
 	fmt.Println("========================")
 
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("No transactions available.")
 		return
 	}
 
-	var yearData []MonthlyReport = getYearlyReports()
+	var yearData []models.MonthlyReport = core.GetYearlyReports()
 
 	fmt.Printf("\n%-10s | %-12s | %-12s | %-12s | %s\n", "Year", "Income", "Expenses", "Net", "Transactions")
 	fmt.Println(strings.Repeat("-", 70))
@@ -209,7 +213,7 @@ func handleYearlyReport() {
 		for y := 1; y < len(yearData); y++ {
 			currentYear := yearData[y]
 			previousYear := yearData[y-1]
-			comparison := getYearOverYearComparison(previousYear.Year, currentYear.Year)
+			comparison := core.GetYearOverYearComparison(previousYear.Year, currentYear.Year)
 
 			fmt.Printf("  Income:   $%.2f → $%.2f (%+.1f%%)\n", comparison.Period1Income, comparison.Period2Income, comparison.IncomePercent)
 			fmt.Printf("  Expenses: $%.2f → $%.2f (%+.1f%%)\n", comparison.Period1Expenses, comparison.Period2Expenses, comparison.ExpensePercent)
@@ -224,7 +228,7 @@ func handleCategoryReport() {
 
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Analyze: (1) Expenses (2) Income (3) Both")
-	desireType, err := getIntInput(reader, "Enter Number Of Type You want: ")
+	desireType, err := utils.GetIntInput(reader, "Enter Number Of Type You want: ")
 	if err != nil {
 		fmt.Println("Invalid Int")
 		return
@@ -246,7 +250,7 @@ func handleCategoryReport() {
 		fmt.Println("\n--- Expense Categories ---")
 	}
 
-	categoryReport := getCategoryBreakdown(transactionType)
+	categoryReport := core.GetCategoryBreakdown(transactionType)
 
 	if len(categoryReport) == 0 {
 		fmt.Println("No data available.")
@@ -319,7 +323,7 @@ func handleMonthOverMonthComparison(reader *bufio.Reader) {
 		return
 	}
 
-	var comparison ComparisonReport = getMonthOverMonthComparison(int(year1), time.Month(month1), int(year2), time.Month(month2))
+	var comparison models.ComparisonReport = core.GetMonthOverMonthComparison(int(year1), time.Month(month1), int(year2), time.Month(month2))
 
 	fmt.Printf("\nComparison: %s %d vs %s %d\n", time.Month(month1).String(), year1, time.Month(month2).String(), year2)
 	fmt.Println(strings.Repeat("=", 60))
@@ -332,19 +336,19 @@ func handleYearOverYearComparisonInteractive(reader *bufio.Reader) {
 	fmt.Println("\nYear-over-Year Comparison")
 	fmt.Println("-------------------------")
 
-	year1, err := getIntInput(reader, "First Year: ")
+	year1, err := utils.GetIntInput(reader, "First Year: ")
 	if err != nil {
 		fmt.Println("Invalid year!")
 		return
 	}
 
-	year2, err := getIntInput(reader, "Second Year: ")
+	year2, err := utils.GetIntInput(reader, "Second Year: ")
 	if err != nil {
 		fmt.Println("Invalid year!")
 		return
 	}
 
-	comparison := getYearOverYearComparison(year1, year2)
+	comparison := core.GetYearOverYearComparison(year1, year2)
 
 	fmt.Printf("\nComparison: %d vs %d\n", year1, year2)
 	fmt.Println(strings.Repeat("=", 60))
@@ -361,7 +365,7 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 	fmt.Println("\nPeriod 1:")
 	fmt.Print("  Start date (YYYY-MM-DD): ")
 	start1Input, _ := reader.ReadString('\n')
-	start1, err := parseDate(start1Input)
+	start1, err := utils.ParseDate(start1Input)
 	if err != nil {
 		fmt.Println("Invalid date!")
 		return
@@ -369,7 +373,7 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 
 	fmt.Print("  End date (YYYY-MM-DD): ")
 	end1Input, _ := reader.ReadString('\n')
-	end1, err := parseDate(strings.TrimSpace(end1Input))
+	end1, err := utils.ParseDate(strings.TrimSpace(end1Input))
 	if err != nil {
 		fmt.Println("Invalid date!")
 		return
@@ -379,7 +383,7 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 	fmt.Println("\nPeriod 2:")
 	fmt.Print("  Start date (YYYY-MM-DD): ")
 	start2Input, _ := reader.ReadString('\n')
-	start2, err := parseDate(strings.TrimSpace(start2Input))
+	start2, err := utils.ParseDate(strings.TrimSpace(start2Input))
 	if err != nil {
 		fmt.Println("Invalid date!")
 		return
@@ -387,13 +391,13 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 
 	fmt.Print("  End date (YYYY-MM-DD): ")
 	end2Input, _ := reader.ReadString('\n')
-	end2, err := parseDate(strings.TrimSpace(end2Input))
+	end2, err := utils.ParseDate(strings.TrimSpace(end2Input))
 	if err != nil {
 		fmt.Println("Invalid date!")
 		return
 	}
 
-	comparison := comparePeriods(start1, end1, start2, end2)
+	comparison := core.ComparePeriods(start1, end1, start2, end2)
 
 	fmt.Printf("\nComparison:\n")
 	fmt.Printf("Period 1: %s to %s\n", start1.Format("2006-01-02"), end1.Format("2006-01-02"))
@@ -404,7 +408,7 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 }
 
 // Display comparison report (helper function)
-func displayComparisonReport(comparison ComparisonReport) {
+func displayComparisonReport(comparison models.ComparisonReport) {
 	fmt.Printf("\n%-15s | %-15s | %-15s | %s\n", "", "Period 1", "Period 2", "Change")
 	fmt.Println(strings.Repeat("-", 70))
 
@@ -492,7 +496,7 @@ func handleAnomaliesReport() {
 	}
 
 	fmt.Printf("Finding Expenses Above %.1f X Average.", threshold)
-	var anomalyTransactions []Transaction = detectHighSpending(threshold)
+	var anomalyTransactions []models.Transaction = core.DetectHighSpending(threshold)
 
 	if len(anomalyTransactions) == 0 {
 		fmt.Printf("\n✓ No unusual spending detected (threshold: %.1fx average)\n", threshold)
@@ -501,7 +505,7 @@ func handleAnomaliesReport() {
 
 	fmt.Printf("\n⚠ Found %d unusual transactions (threshold: %.1fx average):\n\n", len(anomalyTransactions), threshold)
 
-	listFilteredTransactions(anomalyTransactions, "Unusual Spending")
+	core.ListFilteredTransactions(anomalyTransactions, "Unusual Spending")
 
 }
 
@@ -510,7 +514,7 @@ func handleTrendsReport() {
 	fmt.Println("Spending Trends Analysis")
 	fmt.Println("========================")
 
-	categories := getCategories()
+	categories := core.GetCategories()
 
 	if len(categories) == 0 {
 		fmt.Println("No categories available.")
@@ -523,7 +527,7 @@ func handleTrendsReport() {
 	fmt.Println(strings.Repeat("-", 60))
 
 	for _, category := range categories {
-		trend := getCategoryTrend(category, 6)
+		trend := core.GetCategoryTrend(category, 6)
 
 		trendSymbol := "→"
 		if trend == "increasing" {

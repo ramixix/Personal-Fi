@@ -1,25 +1,27 @@
-package main
+package core
 
 import (
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
 	"fmt"
 	"strings"
 	"time"
 )
 
 // Add a transaction to storage
-func addTransaction(t Transaction) {
-	transactions = append(transactions, t)
-	nextTransactionID++
+func AddTransaction(t models.Transaction) {
+	storage.Transactions = append(storage.Transactions, t)
+	storage.NextTransactionID++
 }
 
 // Delete a transaction by ID
 // inside handleDeleteTransaction i can call this function at the end of the function but
 // in orginal code i start from starting index so that is faster i think.
-func deleteTransaction(startingIndex int, id int) bool {
-	for i := startingIndex; i < len(transactions); i++ {
-		if transactions[i].ID == id {
+func DeleteTransaction(startingIndex int, id int) bool {
+	for i := startingIndex; i < len(storage.Transactions); i++ {
+		if storage.Transactions[i].ID == id {
 			// Remove transaction from slice
-			transactions = append(transactions[:i], transactions[i+1:]...)
+			storage.Transactions = append(storage.Transactions[:i], storage.Transactions[i+1:]...)
 			return true
 		}
 	}
@@ -27,21 +29,21 @@ func deleteTransaction(startingIndex int, id int) bool {
 }
 
 // Find transaction by ID
-func findTransaction(transacId int) *Transaction {
-	for i := range transactions {
-		if transactions[i].ID == transacId {
-			return &transactions[i]
+func FindTransaction(transacId int) *models.Transaction {
+	for i := range storage.Transactions {
+		if storage.Transactions[i].ID == transacId {
+			return &storage.Transactions[i]
 		}
 	}
 	return nil
 }
 
 // Get transactions within date range (last N days)
-func getTransactionsByDateRange(days int) []Transaction {
-	var filtered []Transaction
+func GetTransactionsByDateRange(days int) []models.Transaction {
+	var filtered []models.Transaction
 	cutoff_data := time.Now().AddDate(0, 0, -days)
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		if transaction.Date.After(cutoff_data) {
 			filtered = append(filtered, transaction)
 		}
@@ -50,11 +52,11 @@ func getTransactionsByDateRange(days int) []Transaction {
 }
 
 // Get transactions by category
-func getTransactionsByCategory(category string) []Transaction {
+func GetTransactionsByCategory(category string) []models.Transaction {
 	category = strings.ToLower(category)
-	var filtered []Transaction
+	var filtered []models.Transaction
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		if strings.ToLower(transac.Category) == category {
 			filtered = append(filtered, transac)
 		}
@@ -63,10 +65,10 @@ func getTransactionsByCategory(category string) []Transaction {
 }
 
 // Get transactions by type (income or expense)
-func getTransactionsByType(transactionType string) []Transaction {
-	var filtered []Transaction
+func GetTransactionsByType(transactionType string) []models.Transaction {
+	var filtered []models.Transaction
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		if transac.Type == transactionType {
 			filtered = append(filtered, transac)
 		}
@@ -75,10 +77,10 @@ func getTransactionsByType(transactionType string) []Transaction {
 }
 
 // Get transactions between two dates
-func getTransactionsByCustomRange(start, end time.Time) []Transaction {
-	var filtered []Transaction
+func GetTransactionsByCustomRange(start, end time.Time) []models.Transaction {
+	var filtered []models.Transaction
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		// when doing comparision it also compare the time (hour, minute, second) so in that case even the start or end date is equal the transaction date the time will be
 		// most probable different. we know that start and end times are set to 0 for all hour, minute, and second so we do the same for transaction.
 		transacDate := time.Date(transac.Date.Year(), transac.Date.Month(), transac.Date.Day(), 0, 0, 0, 0, transac.Date.Location())
@@ -91,11 +93,11 @@ func getTransactionsByCustomRange(start, end time.Time) []Transaction {
 }
 
 // Get all unique categories
-func getCategories() []string {
+func GetCategories() []string {
 	categories_map := make(map[string]bool)
 	var categories []string
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		if !categories_map[transac.Category] {
 			categories_map[transac.Category] = true
 			categories = append(categories, transac.Category)
@@ -105,8 +107,8 @@ func getCategories() []string {
 }
 
 // Calculate total income and expenses
-func calculateTotals() (totalIncome, totalExpenses float64) {
-	for _, transaction := range transactions {
+func CalculateTotals() (totalIncome, totalExpenses float64) {
+	for _, transaction := range storage.Transactions {
 		if transaction.Type == "income" {
 			totalIncome += transaction.Amount
 		} else {
@@ -128,10 +130,11 @@ func calculateTotals() (totalIncome, totalExpenses float64) {
 }
 
 // Get monthly average income and expneses
-func getMonthlyAverage() (avgIncome float64, avgExpenses float64) {
-
+func GetMonthlyAverage() (float64, float64) {
+	avgIncome := 0.0
+	avgExpenses := 0.0
 	var oldestDate, newestDate time.Time
-	for i, transac := range transactions {
+	for i, transac := range storage.Transactions {
 		if i == 0 {
 			oldestDate = transac.Date
 			newestDate = transac.Date
@@ -153,7 +156,7 @@ func getMonthlyAverage() (avgIncome float64, avgExpenses float64) {
 		totalMonths = 1
 	}
 
-	totalIncome, totalExpenses := calculateTotals()
+	totalIncome, totalExpenses := CalculateTotals()
 	avgIncome = totalIncome / float64(totalMonths)
 	avgExpenses = totalExpenses / float64(totalMonths)
 
@@ -161,7 +164,7 @@ func getMonthlyAverage() (avgIncome float64, avgExpenses float64) {
 }
 
 // Display filtered transactions with summary
-func listFilteredTransactions(transaction_list []Transaction, title string) {
+func ListFilteredTransactions(transaction_list []models.Transaction, title string) {
 	fmt.Printf("%s\n", title)
 	fmt.Printf("%s\n", strings.Repeat("=", len(title)))
 
@@ -173,7 +176,7 @@ func listFilteredTransactions(transaction_list []Transaction, title string) {
 	var total_income, total_expense float64
 
 	for _, transaction := range transaction_list {
-		fmt.Printf("ID: %d | %s | %s | $%.2f | %s | %s\n",
+		fmt.Printf("ID: %-6d | %15s | %-8s | $%-10.2f | %-20s | %s\n",
 			transaction.ID,
 			transaction.Date.Format("2006-01-02 15:04"),
 			transaction.Type,
@@ -189,7 +192,7 @@ func listFilteredTransactions(transaction_list []Transaction, title string) {
 	}
 
 	fmt.Printf("\n--- Summary ---\n")
-	fmt.Printf("Total Income:  $%.2f\n", total_income)
-	fmt.Printf("Total Expenses: $%.2f\n", total_expense)
-	fmt.Printf("Net Amount:    $%.2f\n", total_income-total_expense)
+	fmt.Printf("Total Income:   $%-.2f\n", total_income)
+	fmt.Printf("Total Expenses: $%-.2f\n", total_expense)
+	fmt.Printf("Net Amount:     $%-.2f\n", total_income-total_expense)
 }

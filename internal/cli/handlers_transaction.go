@@ -1,7 +1,11 @@
-package main
+package cli
 
 import (
 	"bufio"
+	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
 	"strconv"
@@ -17,13 +21,13 @@ func handleAddTransaction() {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Get validated inputs from users
-	transactionType := getValidTransactionType(reader)
-	amount := getValidAmount(reader)
-	category := getNonEmptyString(reader, "Category: ")
-	description := getNonEmptyString(reader, "Description: ")
+	transactionType := GetValidTransactionType(reader)
+	amount := utils.GetValidAmount(reader)
+	category := utils.GetNonEmptyString(reader, "Category: ")
+	description := utils.GetNonEmptyString(reader, "Description: ")
 
-	newTransaction := Transaction{
-		ID:          nextTransactionID,
+	newTransaction := models.Transaction{
+		ID:          storage.NextTransactionID,
 		Date:        time.Now(),
 		Amount:      amount,
 		Category:    category,
@@ -31,7 +35,7 @@ func handleAddTransaction() {
 		Type:        transactionType,
 	}
 
-	addTransaction(newTransaction)
+	core.AddTransaction(newTransaction)
 	fmt.Printf("\n✓ Transaction added successfully! ID: %d\n", newTransaction.ID)
 }
 
@@ -44,15 +48,15 @@ func handleListTransactions() {
 		filter := strings.ToLower(os.Args[2])
 		switch filter {
 		case "week":
-			listFilteredTransactions(getTransactionsByDateRange(7), "Last 7 Days (Last Week)")
+			core.ListFilteredTransactions(core.GetTransactionsByDateRange(7), "Last 7 Days (Last Week)")
 		case "month":
-			listFilteredTransactions(getTransactionsByDateRange(30), "Last 30 Days (Last Month)")
+			core.ListFilteredTransactions(core.GetTransactionsByDateRange(30), "Last 30 Days (Last Month)")
 		case "year":
-			listFilteredTransactions(getTransactionsByDateRange(365), "Last 365 Days (Last Year)")
+			core.ListFilteredTransactions(core.GetTransactionsByDateRange(365), "Last 365 Days (Last Year)")
 		case "income":
-			listFilteredTransactions(getTransactionsByType("income"), "All Incomes")
+			core.ListFilteredTransactions(core.GetTransactionsByType("income"), "All Incomes")
 		case "expense":
-			listFilteredTransactions(getTransactionsByType("expense"), "All Expenses")
+			core.ListFilteredTransactions(core.GetTransactionsByType("expense"), "All Expenses")
 		case "category":
 			handleCategoryFilter()
 		case "categories":
@@ -65,36 +69,36 @@ func handleListTransactions() {
 			return
 		}
 	} else {
-		listFilteredTransactions(transactions, "All Transactions")
+		core.ListFilteredTransactions(storage.Transactions, "All Transactions")
 	}
 }
 
 // Handle category-specific filtering
 func handleCategoryFilter() {
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("No transactions available.")
 		return
 	}
 
 	fmt.Println("Available Categories:")
-	categories := getCategories()
+	categories := core.GetCategories()
 
 	for i, cat := range categories {
 		fmt.Printf("  %d. %s\n", i+1, cat)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	category := getNonEmptyString(reader, "Please Enter The Category Name You Want to Filtere:")
-	filtered := getTransactionsByCategory(category)
-	listFilteredTransactions(filtered, fmt.Sprintf("Transactions in category: %s", category))
+	category := utils.GetNonEmptyString(reader, "Please Enter The Category Name You Want to Filtere:")
+	filtered := core.GetTransactionsByCategory(category)
+	core.ListFilteredTransactions(filtered, fmt.Sprintf("Transactions in category: %s", category))
 }
 
 // Show all categories with transaction counts, total income/expense
 func showCategories() {
 	fmt.Println("All Categroies And Amount In Total")
-	fmt.Println("==================================")
+	fmt.Println("==================================================================================================...")
 
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("No transactions available.")
 		return
 	}
@@ -104,7 +108,7 @@ func showCategories() {
 	categoryIncome := make(map[string]float64)
 	categoryExpense := make(map[string]float64)
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		categoryCount[transac.Category]++
 		if transac.Type == "income" {
 			categoryIncome[transac.Category] += transac.Amount
@@ -116,7 +120,7 @@ func showCategories() {
 	}
 
 	for category, amount := range categoryTotal {
-		fmt.Printf("%s: %d Transactions | Total Income: %.2f | Total Expenses: %.2f | Total Amount: $%.2f\n", category, categoryCount[category], categoryIncome[category], categoryExpense[category], amount)
+		fmt.Printf("%-15s: %d Transactions | Total Income: %-10.2f | Total Expenses: %-10.2f | Total Amount: $%.2f\n", category, categoryCount[category], categoryIncome[category], categoryExpense[category], amount)
 	}
 }
 
@@ -135,7 +139,7 @@ func handleCustomRange() {
 		return
 	}
 	start_input = strings.TrimSpace(start_input)
-	start_date, err := parseDate(start_input)
+	start_date, err := utils.ParseDate(start_input)
 	if err != nil {
 		fmt.Println("[Error] Not a date in specified format (Formant : YYYY-MM-DD)")
 		return
@@ -148,7 +152,7 @@ func handleCustomRange() {
 		return
 	}
 	end_input = strings.TrimSpace(end_input)
-	end_date, err := parseDate(end_input)
+	end_date, err := utils.ParseDate(end_input)
 	if err != nil {
 		fmt.Println("[Error] Not a date in specified format (Formant : YYYY-MM-DD)")
 		return
@@ -159,14 +163,14 @@ func handleCustomRange() {
 		return
 	}
 
-	filtered := getTransactionsByCustomRange(start_date, end_date)
+	filtered := core.GetTransactionsByCustomRange(start_date, end_date)
 	title := fmt.Sprintf("Transaction From %s to %s", start_date.Format("2006-01-02"), end_date.Format("2006-01-02"))
-	listFilteredTransactions(filtered, title)
+	core.ListFilteredTransactions(filtered, title)
 }
 
 // Handle delete transaction command
 func handleDeleteTransaction() {
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("[Info] No Transaction to Delete")
 		return
 	}
@@ -174,20 +178,20 @@ func handleDeleteTransaction() {
 	fmt.Println("Delete Transaction")
 	fmt.Println("===================")
 
-	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(transactions))
+	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(storage.Transactions))
 	transactionsToShow := 10
 	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nEnter different number if you want.\nType 'all' to display all transactions. Your Input: ")
 
 	reader := bufio.NewReader(os.Stdin)
-	transactionsToShow = getTransactionNumberToShow(reader, transactionsToShow)
+	transactionsToShow = GetTransactionNumberToShow(reader, transactionsToShow)
 
-	startingIndex := len(transactions) - transactionsToShow
+	startingIndex := len(storage.Transactions) - transactionsToShow
 	if startingIndex < 0 {
 		startingIndex = 0
 	}
 
-	for i := startingIndex; i < len(transactions); i++ {
-		t := transactions[i]
+	for i := startingIndex; i < len(storage.Transactions); i++ {
+		t := storage.Transactions[i]
 		fmt.Printf("Transaction ID: %d | %s |  %s | %.2f | %s \n", t.ID, t.Date.Format("2006-01-02"), t.Type, t.Amount, t.Category)
 	}
 
@@ -205,7 +209,7 @@ func handleDeleteTransaction() {
 		return
 	}
 
-	isTransactionDeleted := deleteTransaction(startingIndex, transacId)
+	isTransactionDeleted := core.DeleteTransaction(startingIndex, transacId)
 	if isTransactionDeleted {
 		fmt.Printf("✓ Transaction ID %d deleted successfully!\n", transacId)
 		return
@@ -216,7 +220,7 @@ func handleDeleteTransaction() {
 
 // Handle edit transaction command
 func handleEditTransaction() {
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("[Info] No Transaction to Delete")
 		return
 	}
@@ -224,20 +228,20 @@ func handleEditTransaction() {
 	fmt.Println("\nEdit Transaction")
 	fmt.Println("=================")
 
-	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(transactions))
+	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(storage.Transactions))
 	transactionsToShow := 10
 	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nTo see a different number, enter it.\nType 'all' to display all transactions.")
 
 	reader := bufio.NewReader(os.Stdin)
-	transactionsToShow = getTransactionNumberToShow(reader, transactionsToShow)
+	transactionsToShow = GetTransactionNumberToShow(reader, transactionsToShow)
 
-	startingIndex := len(transactions) - transactionsToShow
+	startingIndex := len(storage.Transactions) - transactionsToShow
 	if startingIndex < 0 {
 		startingIndex = 0
 	}
 
-	for i := startingIndex; i < len(transactions); i++ {
-		t := transactions[i]
+	for i := startingIndex; i < len(storage.Transactions); i++ {
+		t := storage.Transactions[i]
 		fmt.Printf("Transaction ID: %d | %s |  %s | %.2f | %s \n", t.ID, t.Date.Format("2006-01-02"), t.Type, t.Amount, t.Category)
 	}
 
@@ -255,7 +259,7 @@ func handleEditTransaction() {
 		return
 	}
 
-	transac := findTransaction(transacId)
+	transac := core.FindTransaction(transacId)
 	if transac == nil {
 		fmt.Printf("Transaction ID %d not found!\n", transacId)
 		return
@@ -311,7 +315,7 @@ func handleEditTransaction() {
 	dateInput, _ := reader.ReadString('\n')
 	dateInput = strings.TrimSpace(dateInput)
 	if dateInput != "" {
-		newDate, err := parseDate(dateInput)
+		newDate, err := utils.ParseDate(dateInput)
 		if err == nil {
 			transac.Date = newDate
 		} else {
@@ -327,4 +331,46 @@ func handleEditTransaction() {
 		transac.Category,
 		transac.Description)
 
+}
+
+func GetTransactionNumberToShow(reader *bufio.Reader, defaultValue int) int {
+	transactionsToShow := defaultValue
+InputLoop:
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		switch input {
+		case "":
+			fmt.Printf("\nDisplaying %d Recent transactions:\n", transactionsToShow)
+			break InputLoop
+		case "all":
+			fmt.Println("\nDisplaying All transactions:")
+			transactionsToShow = len(storage.Transactions)
+			break InputLoop
+		default:
+			number, err := strconv.Atoi(input)
+			if err != nil || number <= 0 {
+				fmt.Println("[Warning] Not a Valid Number, Try Again.")
+				continue
+			}
+			fmt.Printf("\nDisplaying Last %d Transactions:\n", number)
+			transactionsToShow = number
+			break InputLoop
+		}
+	}
+	return transactionsToShow
+}
+
+func GetValidTransactionType(reader *bufio.Reader) string {
+	for {
+		fmt.Print("Type (Income/Expense): ")
+		input, _ := reader.ReadString('\n')
+		transaction_type := strings.ToLower(strings.TrimSpace(input))
+
+		if transaction_type == "income" || transaction_type == "expense" {
+			return transaction_type
+		}
+		fmt.Println("[Warning] Invalid type! Pleae Enter 'income' or 'expense'")
+	}
 }

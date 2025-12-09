@@ -1,7 +1,11 @@
-package main
+package cli
 
 import (
 	"bufio"
+	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
 	"strconv"
@@ -49,9 +53,9 @@ func handleKeywordSearch() {
 	fmt.Println("==============")
 
 	reader := bufio.NewReader(os.Stdin)
-	keyword := getNonEmptyString(reader, "Enter keyword to search: ")
+	keyword := utils.GetNonEmptyString(reader, "Enter keyword to search: ")
 
-	results := searchTransactionsByKeyword(keyword)
+	results := core.SearchTransactionsByKeyword(keyword)
 
 	if len(results) == 0 {
 		fmt.Printf("No transactions found containing '%s'\n", keyword)
@@ -59,7 +63,7 @@ func handleKeywordSearch() {
 	}
 
 	title := fmt.Sprintf("Search results for '%s'", keyword)
-	listFilteredTransactions(results, title)
+	core.ListFilteredTransactions(results, title)
 }
 
 // Handle amount range search
@@ -70,16 +74,16 @@ func handleAmountSearch() {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Minimum  ")
-	minAmount := getValidAmount(reader)
+	minAmount := utils.GetValidAmount(reader)
 	fmt.Print("Maximum ")
-	maxAmount := getValidAmount(reader)
+	maxAmount := utils.GetValidAmount(reader)
 
 	if minAmount > maxAmount {
 		fmt.Println("Minimum amount cannot be greater than maximum amount!")
 		return
 	}
 
-	results := searchTransactionsByAmountRange(minAmount, maxAmount)
+	results := core.SearchTransactionsByAmountRange(minAmount, maxAmount)
 
 	if len(results) == 0 {
 		fmt.Printf("No transactions found between $%.2f and $%.2f\n", minAmount, maxAmount)
@@ -87,7 +91,7 @@ func handleAmountSearch() {
 	}
 
 	title := fmt.Sprintf("Transactions between $%.2f and $%.2f", minAmount, maxAmount)
-	listFilteredTransactions(results, title)
+	core.ListFilteredTransactions(results, title)
 }
 
 // Handle advanced search
@@ -96,7 +100,7 @@ func handleAdvancedSearch() {
 	fmt.Println("===============")
 	fmt.Println("Enter search criteria (press Enter to skip any field)")
 
-	var criteria SearchCriteria
+	var criteria models.SearchCriteria
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -145,13 +149,13 @@ func handleAdvancedSearch() {
 	if strings.ToLower(strings.TrimSpace(dateChoice)) == "yes" {
 		fmt.Print("Start date (YYYY-MM-DD): ")
 		startInput, _ := reader.ReadString('\n')
-		startDate, err := parseDate(strings.TrimSpace(startInput))
+		startDate, err := utils.ParseDate(strings.TrimSpace(startInput))
 		if err != nil {
 			fmt.Println("Invalid start date, skipping date filter")
 		} else {
 			fmt.Print("End date (YYYY-MM-DD): ")
 			endInput, _ := reader.ReadString('\n')
-			endDate, err := parseDate(strings.TrimSpace(endInput))
+			endDate, err := utils.ParseDate(strings.TrimSpace(endInput))
 			if err != nil {
 				fmt.Println("Invalid end date, skipping date filter")
 			} else {
@@ -163,7 +167,7 @@ func handleAdvancedSearch() {
 	}
 
 	// Perform search
-	results := advancedSearchTransactions(criteria)
+	results := core.AdvancedSearchTransactions(criteria)
 
 	if len(results) == 0 {
 		fmt.Println("\nNo transactions found matching your criteria.")
@@ -171,12 +175,12 @@ func handleAdvancedSearch() {
 	}
 
 	fmt.Println() // Empty line
-	listFilteredTransactions(results, "Advanced Search Results")
+	core.ListFilteredTransactions(results, "Advanced Search Results")
 }
 
 // Handle similar transaction search
 func handleSimilarSearch() {
-	if len(transactions) == 0 {
+	if len(storage.Transactions) == 0 {
 		fmt.Println("No transactions available.")
 		return
 	}
@@ -185,28 +189,28 @@ func handleSimilarSearch() {
 	fmt.Println("=========================")
 
 	// Show recent transactions
-	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(transactions))
+	fmt.Printf("\n[Info] Total Transaction Number: %d.\n", len(storage.Transactions))
 	transactionsToShow := 10
 	fmt.Println("\nPress Enter to show the latest 10 transactions (default).\nTo see a different number, enter it.\nType 'all' to display all transactions.")
 	reader := bufio.NewReader(os.Stdin)
-	transactionsToShow = getTransactionNumberToShow(reader, transactionsToShow)
+	transactionsToShow = GetTransactionNumberToShow(reader, transactionsToShow)
 
-	startingIndex := len(transactions) - transactionsToShow
+	startingIndex := len(storage.Transactions) - transactionsToShow
 	if startingIndex < 0 {
 		startingIndex = 0
 	}
-	for i := startingIndex; i < len(transactions); i++ {
-		t := transactions[i]
+	for i := startingIndex; i < len(storage.Transactions); i++ {
+		t := storage.Transactions[i]
 		fmt.Printf("Transaction ID: %d | %s |  %s | %.2f | %s \n", t.ID, t.Date.Format("2006-01-02"), t.Type, t.Amount, t.Category)
 	}
 
-	transactionID, err := getIntInput(reader, "\nEnter transaction ID to find similar transactions: ")
+	transactionID, err := utils.GetIntInput(reader, "\nEnter transaction ID to find similar transactions: ")
 	if err != nil {
 		fmt.Println("Invalid transaction ID!")
 		return
 	}
 
-	referenceTransaction := findTransaction(transactionID)
+	referenceTransaction := core.FindTransaction(transactionID)
 	if referenceTransaction == nil {
 		fmt.Println("Transaction not found!")
 		return
@@ -222,7 +226,7 @@ func handleSimilarSearch() {
 		fmt.Printf("Could not read the input. Using default tolerance: %.0f%%\n", tolerance)
 	}
 
-	results := findSimilarTransactions(*referenceTransaction, tolerance)
+	results := core.FindSimilarTransactions(*referenceTransaction, tolerance)
 
 	if len(results) == 0 {
 		fmt.Println("\nNo similar transactions found.")
@@ -230,7 +234,7 @@ func handleSimilarSearch() {
 	}
 
 	title := fmt.Sprintf("Similar transactions (±%.0f%%)", tolerance)
-	listFilteredTransactions(results, title)
+	core.ListFilteredTransactions(results, title)
 }
 
 // Handle top spending transactions
@@ -240,14 +244,14 @@ func handleTopSpending() {
 
 	reader := bufio.NewReader(os.Stdin)
 	prompt := "How many top transactions to show? (default: 10): "
-	limitInput, err := getIntInput(reader, prompt)
+	limitInput, err := utils.GetIntInput(reader, prompt)
 
 	limit := 10
 	if err == nil && limitInput > 0 {
 		limit = limitInput
 	}
 
-	results := getTopSpendingTransactions(limit)
+	results := core.GetTopSpendingTransactions(limit)
 
 	if len(results) == 0 {
 		fmt.Println("No expense transactions found.")
@@ -255,7 +259,7 @@ func handleTopSpending() {
 	}
 
 	title := fmt.Sprintf("Top %d Spending Transactions", len(results))
-	listFilteredTransactions(results, title)
+	core.ListFilteredTransactions(results, title)
 }
 
 // Handle recent transactions
@@ -265,14 +269,14 @@ func handleRecentTransactions() {
 
 	reader := bufio.NewReader(os.Stdin)
 	prompt := "How many recent transactions to show? (default: 10): "
-	limitInput, err := getIntInput(reader, prompt)
+	limitInput, err := utils.GetIntInput(reader, prompt)
 
 	limit := 10
 	if err == nil && limitInput > 0 {
 		limit = limitInput
 	}
 
-	results := getRecentTransactions(limit)
+	results := core.GetRecentTransactions(limit)
 
 	if len(results) == 0 {
 		fmt.Println("No transactions found.")
@@ -280,5 +284,5 @@ func handleRecentTransactions() {
 	}
 
 	title := fmt.Sprintf("Last %d Transactions", len(results))
-	listFilteredTransactions(results, title)
+	core.ListFilteredTransactions(results, title)
 }

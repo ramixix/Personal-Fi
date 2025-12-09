@@ -1,9 +1,14 @@
-package main
+package cli
 
 import (
 	"bufio"
+	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,7 +19,7 @@ func handleAccounts() {
 	if len(os.Args) < 3 {
 		fmt.Println("Account Management")
 		fmt.Println("==================")
-		fmt.Printf("Usage: %s accounts [command]\n", os.Args[0])
+		fmt.Printf("Usage: %s accounts [command]\n", filepath.Base(os.Args[0]))
 		fmt.Println("Commands:")
 		fmt.Println("  create    Create a new account")
 		fmt.Println("  list      List all accounts")
@@ -47,17 +52,17 @@ func handleCreateAccount() {
 	fmt.Println("==================")
 
 	reader := bufio.NewReader(os.Stdin)
-	accountName := getNonEmptyString(reader, "Account Name: ")
+	accountName := utils.GetNonEmptyString(reader, "Account Name: ")
 
-	newAccount := Account{
-		ID:      nextAccountID,
+	newAccount := models.Account{
+		ID:      storage.NextAccountID,
 		Name:    accountName,
 		Balance: 0.0,
 		Created: time.Now(),
 	}
 
-	accounts = append(accounts, newAccount)
-	nextAccountID += 1
+	storage.Accounts = append(storage.Accounts, newAccount)
+	storage.NextAccountID += 1
 
 	fmt.Printf("✓ Account '%s' created successfully! ID: %d\n", accountName, newAccount.ID)
 }
@@ -67,14 +72,14 @@ func handleListAccounts() {
 	fmt.Println("List Accounts")
 	fmt.Println("==============")
 
-	if len(accounts) == 0 {
+	if len(storage.Accounts) == 0 {
 		fmt.Println("\n[Info] No Accounts Found.")
 		return
 	}
 
 	var totalBalance float64
-	for _, account := range accounts {
-		fmt.Printf("ID: %d | Account Name: %s | Balance: $%.2f | Created: %s\n", account.ID, account.Name, account.Balance, account.Created.Format("2006-01-02"))
+	for _, account := range storage.Accounts {
+		fmt.Printf("ID: %-8d | Account Name: %-20s | Balance: $%-15.2f | Created: %s\n", account.ID, account.Name, account.Balance, account.Created.Format("2006-01-02"))
 		totalBalance += account.Balance
 	}
 
@@ -83,7 +88,7 @@ func handleListAccounts() {
 
 // Add money to an account
 func handleAddToAccount() {
-	if len(accounts) == 0 {
+	if len(storage.Accounts) == 0 {
 		fmt.Println("No accounts available. Create an account first.")
 		return
 	}
@@ -94,36 +99,36 @@ func handleAddToAccount() {
 	handleListAccounts()
 
 	reader := bufio.NewReader(os.Stdin)
-	id, err := getIntInput(reader, "\nEnter Account ID: ")
+	id, err := utils.GetIntInput(reader, "\nEnter Account ID: ")
 
 	if err != nil {
 		fmt.Println("[Warning] Invalid Account ID!")
 		return
 	}
 
-	if id > len(accounts) || id < 0 {
-		fmt.Printf("[Warning] Please Pay Attention to Range of Accounts Available %d-%d\n", 0, len(accounts)-1)
+	if id > len(storage.Accounts) || id < 0 {
+		fmt.Printf("[Warning] Please Pay Attention to Range of Accounts Available %d-%d\n", 0, len(storage.Accounts)-1)
 		return
 	}
 
-	account := findAccount(id)
+	account := core.FindAccount(id)
 	if account == nil {
 		fmt.Println("Account Not found")
 		return
 	}
 
-	amountToAdd := getValidAmount(reader)
+	amountToAdd := utils.GetValidAmount(reader)
 	fmt.Print("Note (Optional): ")
 	noteInput, _ := reader.ReadString('\n')
 	note := strings.TrimSpace(noteInput)
 
-	addMoneyToAccount(account, amountToAdd, note)
+	core.AddMoneyToAccount(account, amountToAdd, note)
 	fmt.Printf("✓ Added $%.2f to '%s'. New balance: $%.2f\n", amountToAdd, account.Name, account.Balance)
 }
 
 // Show account transaction history
 func handleAccountHistory() {
-	if len(accounts) == 0 {
+	if len(storage.Accounts) == 0 {
 		fmt.Println("[Warning] No Account Available.")
 		return
 	}
@@ -131,22 +136,22 @@ func handleAccountHistory() {
 	fmt.Println("Acouunt History")
 	fmt.Println("===============")
 
-	fmt.Println("Available Account:")
+	fmt.Println("Available Accounts:")
 
-	for _, account := range accounts {
+	for _, account := range storage.Accounts {
 		fmt.Printf("Account ID: %d | Account Name: %s\n", account.ID, account.Name)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	id, err := getIntInput(reader, "Enter Account ID: ")
+	id, err := utils.GetIntInput(reader, "Enter Account ID: ")
 
-	if err != nil || id < 0 || id > len(accounts) {
+	if err != nil || id < 0 || id > len(storage.Accounts) {
 		fmt.Println("[Error] Invalid ID. Please Enter An Integer In The Available Range!!!")
 		return
 	}
 
 	var accountName string
-	account := findAccount(id)
+	account := core.FindAccount(id)
 	if account == nil {
 		fmt.Println("No Account Found!")
 		return
@@ -157,9 +162,9 @@ func handleAccountHistory() {
 	fmt.Println(strings.Repeat("=", len(accountName)+20))
 
 	found := false
-	for _, transac := range accountTransactions {
+	for _, transac := range storage.AccountTransactions {
 		if transac.AccountID == id {
-			fmt.Printf("%s | +$%.2f | %s, %d\n", transac.Date.Format("2006-01-02 15:04"), transac.Amount, transac.Note, transac.AccountID)
+			fmt.Printf("%-12s | +$%-14.2f | %s\n", transac.Date.Format("2006-01-02 15:04"), transac.Amount, transac.Note)
 			found = true
 		}
 	}
@@ -171,7 +176,7 @@ func handleAccountHistory() {
 
 // Handle delete account command
 func handleDeleteAccount() {
-	if len(accounts) == 0 {
+	if len(storage.Accounts) == 0 {
 		fmt.Println("[Info] No Accounts to Delete")
 		return
 	}
@@ -179,7 +184,7 @@ func handleDeleteAccount() {
 	fmt.Println("Delete Account")
 	fmt.Println("==============")
 
-	fmt.Printf("\n[Info] Total Account Number: %d.\n", len(accounts))
+	fmt.Printf("\n[Info] Total Account Number: %d.\n", len(storage.Accounts))
 
 	handleListAccounts()
 
@@ -198,14 +203,14 @@ func handleDeleteAccount() {
 		return
 	}
 
-	doYouConfirm := getConfirmation(reader, "[Info] Are You SURE? This will delete all account hitory and all account transactions. (yes(y) or anythin else considered as no): ")
+	doYouConfirm := utils.GetConfirmation(reader, "[Info] Are You SURE? This will delete all account hitory and all account transactions. (yes/y or anything else considered as no): ")
 
 	if !doYouConfirm {
 		fmt.Println("Deletion cancelled.")
 		return
 	}
 
-	isDeleted := deleteAccount(accountId)
+	isDeleted := core.DeleteAccount(accountId)
 	if isDeleted {
 		fmt.Printf("✓ Account ID %d deleted successfully!\n", accountId)
 		return

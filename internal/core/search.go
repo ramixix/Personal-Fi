@@ -1,16 +1,20 @@
-package main
+package core
 
-import "strings"
+import (
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/storage"
+	"strings"
+)
 
 // Search transactions by keyword in description and category
-func searchTransactionsByKeyword(keyword string) []Transaction {
+func SearchTransactionsByKeyword(keyword string) []models.Transaction {
 	if keyword == "" {
 		return nil
 	}
-	var results []Transaction
+	var results []models.Transaction
 	keyword = strings.ToLower(keyword)
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		description := strings.ToLower(transac.Description)
 		category := strings.ToLower(transac.Category)
 
@@ -22,10 +26,10 @@ func searchTransactionsByKeyword(keyword string) []Transaction {
 }
 
 // Search transactions by amount range
-func searchTransactionsByAmountRange(min, max float64) []Transaction {
-	var results []Transaction
+func SearchTransactionsByAmountRange(min, max float64) []models.Transaction {
+	var results []models.Transaction
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		if transaction.Amount >= min && transaction.Amount <= max {
 			results = append(results, transaction)
 		}
@@ -34,10 +38,10 @@ func searchTransactionsByAmountRange(min, max float64) []Transaction {
 }
 
 // Advanced search with multiple criteria
-func advancedSearchTransactions(criteria SearchCriteria) []Transaction {
-	var results []Transaction
+func AdvancedSearchTransactions(criteria models.SearchCriteria) []models.Transaction {
+	var results []models.Transaction
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		// If keyword is set then check if the transaction have the keyword if not go to next transaction
 		if criteria.Keyword != "" {
 			keyword := strings.ToLower(criteria.Keyword)
@@ -97,10 +101,10 @@ func advancedSearchTransactions(criteria SearchCriteria) []Transaction {
 }
 
 // Find similar transactions to specific transaction by controling that the categories are same and have similar amount (by similar mean be in range of tolerance)
-func findSimilarTransactions(referenceTransaction Transaction, amountTolerance float64) []Transaction {
-	var results []Transaction
+func FindSimilarTransactions(referenceTransaction models.Transaction, amountTolerance float64) []models.Transaction {
+	var results []models.Transaction
 
-	for _, transac := range transactions {
+	for _, transac := range storage.Transactions {
 		// Skip the reference transaction itself
 		if transac.ID == referenceTransaction.ID {
 			continue
@@ -124,11 +128,11 @@ func findSimilarTransactions(referenceTransaction Transaction, amountTolerance f
 }
 
 // Search accounts by name
-func searchAccountsByName(keyword string) []Account {
-	var results []Account
+func SearchAccountsByName(keyword string) []models.Account {
+	var results []models.Account
 	keywordLower := strings.ToLower(keyword)
 
-	for _, account := range accounts {
+	for _, account := range storage.Accounts {
 		nameLower := strings.ToLower(account.Name)
 		if strings.Contains(nameLower, keywordLower) {
 			results = append(results, account)
@@ -139,11 +143,11 @@ func searchAccountsByName(keyword string) []Account {
 }
 
 // Search goals by name or description
-func searchGoalsByKeyword(keyword string) []Goal {
-	var results []Goal
+func SearchGoalsByKeyword(keyword string) []models.Goal {
+	var results []models.Goal
 	keywordLower := strings.ToLower(keyword)
 
-	for _, goal := range goals {
+	for _, goal := range storage.Goals {
 		nameLower := strings.ToLower(goal.Name)
 		descLower := strings.ToLower(goal.Description)
 
@@ -156,10 +160,10 @@ func searchGoalsByKeyword(keyword string) []Goal {
 }
 
 // Get transactions by multiple categories
-func getTransactionsByMultipleCategories(categories []string) []Transaction {
-	var results []Transaction
+func GetTransactionsByMultipleCategories(categories []string) []models.Transaction {
+	var results []models.Transaction
 
-	for _, transaction := range transactions {
+	for _, transaction := range storage.Transactions {
 		for _, cat := range categories {
 			if strings.EqualFold(transaction.Category, cat) {
 				results = append(results, transaction)
@@ -172,14 +176,14 @@ func getTransactionsByMultipleCategories(categories []string) []Transaction {
 }
 
 // Get highest spending transactions (top N)
-func getTopSpendingTransactions(limit int) []Transaction {
+func GetTopSpendingTransactions(limit int) []models.Transaction {
 
 	if limit <= 0 {
-		return []Transaction{}
+		return []models.Transaction{}
 	}
 
 	// Get only expenses
-	expenses := getTransactionsByType("expense")
+	expenses := GetTransactionsByType("expense")
 
 	// Sort by amount (bubble sort for simplicity)
 	for i := 0; i < len(expenses); i++ {
@@ -199,15 +203,15 @@ func getTopSpendingTransactions(limit int) []Transaction {
 }
 
 // Get recent transactions (last N)
-func getRecentTransactions(limit int) []Transaction {
-	if limit > len(transactions) {
-		limit = len(transactions)
+func GetRecentTransactions(limit int) []models.Transaction {
+	if limit > len(storage.Transactions) {
+		limit = len(storage.Transactions)
 	}
 
 	if limit <= 0 {
-		return []Transaction{}
+		return []models.Transaction{}
 	}
 
 	// Return last N transactions
-	return transactions[len(transactions)-limit:]
+	return storage.Transactions[len(storage.Transactions)-limit:]
 }

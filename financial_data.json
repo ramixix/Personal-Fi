@@ -71,10 +71,47 @@
    "category": "a",
    "description": "a",
    "type": "expense"
+  },
+  {
+   "id": 12,
+   "date": "2025-12-09T02:41:16.560866139Z",
+   "amount": 3,
+   "category": "fish",
+   "description": "fish on day",
+   "type": "income"
+  },
+  {
+   "id": 13,
+   "date": "2025-12-09T02:41:41.837309676Z",
+   "amount": 23,
+   "category": "bread",
+   "description": "every day bread",
+   "type": "expense"
   }
  ],
- "accounts": [],
- "account_transactions": null,
+ "accounts": [
+  {
+   "id": 1,
+   "name": "test",
+   "balance": 34,
+   "created": "2025-12-09T02:54:52.60283236Z"
+  },
+  {
+   "id": 3,
+   "name": "2342fsdvsdfv23t",
+   "balance": 0,
+   "created": "2025-12-09T02:55:33.078730711Z"
+  }
+ ],
+ "account_transactions": [
+  {
+   "id": 3,
+   "account_id": 1,
+   "amount": 34,
+   "date": "2025-12-09T02:55:12.418648374Z",
+   "note": ""
+  }
+ ],
  "goals": [
   {
    "id": 0,
@@ -102,9 +139,9 @@
    "automatic": false
   }
  ],
- "next_transaction_id": 12,
- "next_account_id": 1,
- "next_account_transaction_id": 3,
+ "next_transaction_id": 14,
+ "next_account_id": 4,
+ "next_account_transaction_id": 4,
  "next_goal_id": 1,
  "next_goal_contribution_id": 1
 }
