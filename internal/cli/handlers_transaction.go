@@ -242,7 +242,7 @@ func handleEditTransaction() {
 
 	for i := startingIndex; i < len(storage.Transactions); i++ {
 		t := storage.Transactions[i]
-		fmt.Printf("Transaction ID: %d | %s |  %s | %.2f | %s \n", t.ID, t.Date.Format("2006-01-02"), t.Type, t.Amount, t.Category)
+		fmt.Printf("Transaction ID: %-8d | %-12s |  %-8s | %-12.2f | %s \n", t.ID, t.Date.Format("2006-01-02"), t.Type, t.Amount, t.Category)
 	}
 
 	fmt.Print("\nPlease Enter The Transaction ID to Edit (or 'cancel'): ")
@@ -269,7 +269,7 @@ func handleEditTransaction() {
 	fmt.Println("Press Enter to keep current value")
 
 	// Edit type
-	fmt.Printf("Type income/expnese (current %s)", transac.Type)
+	fmt.Printf("Type income/expnese (current %s): ", transac.Type)
 	typeInput, _ := reader.ReadString('\n')
 	typeInput = strings.TrimSpace(typeInput)
 	if typeInput != "" {

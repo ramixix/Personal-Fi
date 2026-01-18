@@ -2,16 +2,23 @@ package main
 
 import (
 	"financial_tracker/internal/cli"
+	"financial_tracker/internal/gui"
+	"financial_tracker/internal/storage"
 	"fmt"
 	"os"
 )
 
 func main() {
+	// Load data first
+	err := storage.LoadData()
+	if err != nil {
+		fmt.Printf("Warning: Could not load data: %v\n", err)
+	}
+
 	// Check if GUI flag is provided
 	if len(os.Args) > 1 && os.Args[1] == "--gui" {
-		// TODO: Launch GUI
-		fmt.Println("GUI mode will be implemented next!")
-		fmt.Println("For now, use CLI mode (run without --gui flag)")
+		// Launch GUI
+		gui.Run()
 		return
 	}
 

@@ -1,20 +1,12 @@
 {
  "transactions": [
   {
-   "id": 4,
-   "date": "2025-10-27T05:09:22.690971959Z",
-   "amount": 321,
-   "category": "asdf",
-   "description": "adf",
-   "type": "income"
-  },
-  {
    "id": 3,
    "date": "2011-01-22T00:00:00Z",
-   "amount": 234,
-   "category": "klasjdf",
-   "description": "klajsdf",
-   "type": "income"
+   "amount": 111,
+   "category": "testedit",
+   "description": "editing transaction",
+   "type": "expense"
   },
   {
    "id": 4,
@@ -87,6 +79,30 @@
    "category": "bread",
    "description": "every day bread",
    "type": "expense"
+  },
+  {
+   "id": 14,
+   "date": "2025-12-13T05:40:24.395958742Z",
+   "amount": 213,
+   "category": "Food",
+   "description": "food test",
+   "type": "income"
+  },
+  {
+   "id": 15,
+   "date": "2025-12-13T05:40:44.379920443Z",
+   "amount": 1111,
+   "category": "aaa",
+   "description": "aaa",
+   "type": "income"
+  },
+  {
+   "id": 16,
+   "date": "2025-12-13T05:41:01.445807161Z",
+   "amount": 11139,
+   "category": "tet",
+   "description": "test",
+   "type": "income"
   }
  ],
  "accounts": [
@@ -95,12 +111,6 @@
    "name": "test",
    "balance": 34,
    "created": "2025-12-09T02:54:52.60283236Z"
-  },
-  {
-   "id": 3,
-   "name": "2342fsdvsdfv23t",
-   "balance": 0,
-   "created": "2025-12-09T02:55:33.078730711Z"
   }
  ],
  "account_transactions": [
@@ -139,7 +149,7 @@
    "automatic": false
   }
  ],
- "next_transaction_id": 14,
+ "next_transaction_id": 17,
  "next_account_id": 4,
  "next_account_transaction_id": 4,
  "next_goal_id": 1,
