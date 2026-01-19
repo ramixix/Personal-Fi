@@ -28,6 +28,23 @@ func Run() {
 	// Initialize screens
 	gui.dashboardScreen = NewDashboardScreen(&gui)
 
-	myWindow.SetContent(gui.dashboardScreen.Render())
+	gui.ShowDashboardScreen()
 	myWindow.ShowAndRun()
+}
+
+// Render dashboard screen
+func (a *GuiApp) ShowDashboardScreen() {
+	a.GuiWindow.SetContent(a.dashboardScreen.Render())
+}
+
+// Render Transactions screen
+func (a *GuiApp) ShowTransactionsScreen() {
+	// TODO: Will implement next
+	a.ShowDashboardScreen()
+}
+
+// Render Goals screen
+func (a *GuiApp) ShowGoalsScreen() {
+	// TODO: Will implement next
+	a.ShowDashboardScreen()
 }

@@ -215,3 +215,17 @@ func GetRecentTransactions(limit int) []models.Transaction {
 	// Return last N transactions
 	return storage.Transactions[len(storage.Transactions)-limit:]
 }
+
+// Get recent goals (last N)
+func GetRecentGoalContributions(limit int) []models.GoalContribution {
+	if limit > len(storage.GoalContributions) {
+		limit = len(storage.GoalContributions)
+	}
+
+	if limit <= 0 {
+		return []models.GoalContribution{}
+	}
+
+	// Return last N transactions
+	return storage.GoalContributions[len(storage.GoalContributions)-limit:]
+}

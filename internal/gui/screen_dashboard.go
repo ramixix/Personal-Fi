@@ -31,10 +31,18 @@ func (d *DashboardScreen) Render() fyne.CanvasObject {
 	// create summary cards
 	summaryCards := d.createSummaryCards()
 
+	// create quick actions
+	// quickActions := d.createQuickActions()
+
+	// Create recent transaction and goal contribution section
+	recentTransacGoalContributions := d.createRecentEvents()
+
 	content := container.NewVBox(
 		title,
 		widget.NewSeparator(),
 		summaryCards,
+		widget.NewSeparator(),
+		recentTransacGoalContributions,
 	)
 	return content
 }
@@ -61,11 +69,14 @@ func (d *DashboardScreen) createSummaryCards() fyne.CanvasObject {
 		netWorthText = fmt.Sprintf("+ $%.2f", netWorth)
 	}
 
+	// Average Montly Income/Expenses and Net of All time
+	// avgIncome, avgExpenses := core.GetMonthlyAverage()
+
 	// income card
-	incomeCard := widget.NewCard("💰 Income", "", widget.NewLabel(totalIncomeText))
+	incomeCard := widget.NewCard("💰 Total Income", "", widget.NewLabel(totalIncomeText))
 
 	// expenses card
-	expensesCard := widget.NewCard("💸 Expenses", "", widget.NewLabel(totalExpensesText))
+	expensesCard := widget.NewCard("💸 Total Expenses", "", widget.NewLabel(totalExpensesText))
 
 	// Net Worth Card
 	netWorthCard := widget.NewCard("📊 Net Worth", "", widget.NewLabel(netWorthText))
@@ -94,6 +105,89 @@ func (d *DashboardScreen) createSummaryCards() fyne.CanvasObject {
 		cardsGrid_2,
 	)
 	return content
+}
+
+func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
+	title := widget.NewLabelWithStyle("Transaction & Goals", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	recentTransactions := core.GetRecentTransactions(5)
+	recentGoalContributions := core.GetRecentGoalContributions(5)
+
+	var transacCards []fyne.CanvasObject
+	var goalContributionCards []fyne.CanvasObject
+
+	if len(recentTransactions) == 0 {
+		transacCards = append(transacCards, widget.NewLabel("No Transaction Found. Add Transaction First!"))
+
+	} else {
+		for _, transac := range recentTransactions {
+			typeIcon := "💰 ✅"
+			if transac.Type == "expense" {
+				typeIcon = "💸 🔴"
+			}
+
+			cardTitle := fmt.Sprintf("%s Transaction ID: %d ", typeIcon, transac.ID)
+			cardSubtitle := fmt.Sprintf("Category: %s\nType: %s\nNote: %s", transac.Category, transac.Type, transac.Description)
+			cardAmount := fmt.Sprintf("%.2f", transac.Amount)
+			date := transac.Date.Format("Jan 02, 2006")
+
+			cardContent := container.NewVBox(
+				widget.NewLabelWithStyle(cardTitle, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+				widget.NewLabel(cardSubtitle),
+				container.NewHBox(
+					widget.NewLabel(date),
+					widget.NewLabel("   |   "),
+					widget.NewLabelWithStyle(cardAmount, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+				),
+			)
+			card := widget.NewCard("", "", cardContent)
+			transacCards = append(transacCards, card)
+		}
+	}
+
+	if len(recentGoalContributions) == 0 {
+		goalContributionCards = append(goalContributionCards, widget.NewLabel("No Goal Contribution Yet. Add Contirbution First!"))
+	} else {
+
+		for _, contribution := range recentGoalContributions {
+			goal := core.FindGoal(contribution.GoalID)
+
+			cardTitle := fmt.Sprintf("Contribution ID %d\nContributed To Goal: %s", contribution.ID, goal.Name)
+			cardSubtitle := fmt.Sprintf("Note: %s", contribution.Note)
+			cardAmount := fmt.Sprintf("Amount: %.2f", contribution.Amount)
+			cardDate := contribution.Date.Format("Jan 02, 2006")
+
+			cardContent := container.NewVBox(
+				widget.NewLabelWithStyle(cardTitle, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+				widget.NewLabel(cardSubtitle),
+				container.NewHBox(
+					widget.NewLabel(cardDate),
+					widget.NewLabel("   |   "),
+					widget.NewLabelWithStyle(cardAmount, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+				),
+			)
+
+			card := widget.NewCard("", "", cardContent)
+			goalContributionCards = append(goalContributionCards, card)
+		}
+	}
+
+	// put all cards on top of each other
+	transactions := container.NewVBox(transacCards...)
+	contributions := container.NewVBox(goalContributionCards...)
+
+	// create two columns one for transction one for goal contributions
+	cardsGrid := container.NewGridWithColumns(2,
+		transactions,
+		contributions,
+	)
+
+	// craete button to view all transction in transction screen and goals in goals screen
+	viewAllTransaction := widget.NewButton("View All Transactions", func() { d.guiApp.ShowTransactionsScreen() })
+	viewAllGoals := widget.NewButton("View All Goals", func() { d.guiApp.ShowGoalsScreen() })
+
+	return container.NewVBox(title, cardsGrid, viewAllTransaction, viewAllGoals)
+
 }
 
 func NewSummaryCard(title, value string) fyne.CanvasObject {
