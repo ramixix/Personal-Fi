@@ -3,17 +3,20 @@ package gui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
 )
 
 type GuiApp struct {
 	application fyne.App
 	GuiWindow   fyne.Window
 
-	dashboardScreen *DashboardScreen
-	// transactionsScreen *TransactionScreen
-	// goalsScreen *GoalsScreen
-	// accountsScreen *AccountsScreen
-	// reportsScreen *ReportsScreen
+	mainContent *fyne.Container
+
+	dashboardScreen    *DashboardScreen
+	transactionsScreen *TransactionsScreen
+	goalsScreen        *GoalsScreen
+	accountsScreen     *AccountsScreen
+	reportsScreen      *ReportsScreen
 }
 
 func Run() {
@@ -28,13 +31,23 @@ func Run() {
 	// Initialize screens
 	gui.dashboardScreen = NewDashboardScreen(&gui)
 
+	gui.mainContent = container.NewStack()
+
+	sideBard := gui.createSidebar()
+
+	split := container.NewHSplit(sideBard, gui.mainContent)
+	split.SetOffset(0.15)
+
+	myWindow.SetContent(split)
 	gui.ShowDashboardScreen()
 	myWindow.ShowAndRun()
 }
 
 // Render dashboard screen
 func (a *GuiApp) ShowDashboardScreen() {
-	a.GuiWindow.SetContent(a.dashboardScreen.Render())
+	a.mainContent.Objects = []fyne.CanvasObject{a.dashboardScreen.Render()}
+	a.mainContent.Refresh()
+	// a.GuiWindow.SetContent(a.dashboardScreen.Render())
 }
 
 // Render Transactions screen
@@ -45,6 +58,21 @@ func (a *GuiApp) ShowTransactionsScreen() {
 
 // Render Goals screen
 func (a *GuiApp) ShowGoalsScreen() {
+	// TODO: Will implement next
+	a.ShowDashboardScreen()
+}
+
+func (a *GuiApp) ShowAccountsScreen() {
+	// TODO: Will implement next
+	a.ShowDashboardScreen()
+}
+
+func (a *GuiApp) ShowReportsScreen() {
+	// TODO: Will implement next
+	a.ShowDashboardScreen()
+}
+
+func (a *GuiApp) ShowSettingsScreen() {
 	// TODO: Will implement next
 	a.ShowDashboardScreen()
 }
