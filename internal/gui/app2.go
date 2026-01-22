@@ -4,6 +4,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 )
 
 type GuiApp struct {
@@ -36,7 +37,7 @@ func Run() {
 	sideBard := gui.createSidebar()
 
 	split := container.NewHSplit(sideBard, gui.mainContent)
-	split.SetOffset(0.15)
+	split.SetOffset(0)
 
 	myWindow.SetContent(split)
 	gui.ShowDashboardScreen()
@@ -52,27 +53,41 @@ func (a *GuiApp) ShowDashboardScreen() {
 
 // Render Transactions screen
 func (a *GuiApp) ShowTransactionsScreen() {
-	// TODO: Will implement next
-	a.ShowDashboardScreen()
+	a.mainContent.Objects = []fyne.CanvasObject{a.transactionsScreen.Render()}
+	a.mainContent.Refresh()
+}
+
+// Render Accoutns screen
+func (a *GuiApp) ShowAccountsScreen() {
+	a.mainContent.Objects = []fyne.CanvasObject{a.accountsScreen.Render()}
+	a.mainContent.Refresh()
 }
 
 // Render Goals screen
 func (a *GuiApp) ShowGoalsScreen() {
-	// TODO: Will implement next
-	a.ShowDashboardScreen()
-}
-
-func (a *GuiApp) ShowAccountsScreen() {
-	// TODO: Will implement next
-	a.ShowDashboardScreen()
+	a.mainContent.Objects = []fyne.CanvasObject{a.goalsScreen.Render()}
+	a.mainContent.Refresh()
 }
 
 func (a *GuiApp) ShowReportsScreen() {
-	// TODO: Will implement next
-	a.ShowDashboardScreen()
+	a.mainContent.Objects = []fyne.CanvasObject{a.reportsScreen.Render()}
+	a.mainContent.Refresh()
 }
 
 func (a *GuiApp) ShowSettingsScreen() {
-	// TODO: Will implement next
-	a.ShowDashboardScreen()
+	// Simple settings page for now
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewSeparator(),
+		widget.NewLabel("Settings page coming soon!"),
+		widget.NewLabel(""),
+		widget.NewLabel("Future features:"),
+		widget.NewLabel("  • Theme selection (Light/Dark mode)"),
+		widget.NewLabel("  • Currency settings"),
+		widget.NewLabel("  • Export/Import data"),
+		widget.NewLabel("  • Account preferences"),
+	)
+
+	a.mainContent.Objects = []fyne.CanvasObject{container.NewScroll(content)}
+	a.mainContent.Refresh()
 }

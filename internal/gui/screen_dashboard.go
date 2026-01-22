@@ -44,7 +44,7 @@ func (d *DashboardScreen) Render() fyne.CanvasObject {
 		widget.NewSeparator(),
 		recentTransacGoalContributions,
 	)
-	return content
+	return container.NewScroll(content)
 }
 
 func (d *DashboardScreen) createSummaryCards() fyne.CanvasObject {
