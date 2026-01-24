@@ -31,6 +31,10 @@ func Run() {
 
 	// Initialize screens
 	gui.dashboardScreen = NewDashboardScreen(&gui)
+	gui.transactionsScreen = NewTransactionsScreen(&gui)
+	gui.accountsScreen = NewAccountsScreen(&gui)
+	gui.goalsScreen = NewGoalsScreen(&gui)
+	gui.reportsScreen = NewReportsScreen(&gui)
 
 	gui.mainContent = container.NewStack()
 
