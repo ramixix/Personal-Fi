@@ -2,11 +2,14 @@ package gui
 
 import (
 	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -21,7 +24,7 @@ type TransactionsScreen struct {
 }
 
 func NewTransactionsScreen(app *GuiApp) *TransactionsScreen {
-	return &TransactionsScreen{guiApp: app}
+	return &TransactionsScreen{guiApp: app, filterType: "all", filterCategory: "all", filterPeriod: "all"}
 }
 
 func (t *TransactionsScreen) Render() fyne.CanvasObject {
@@ -30,6 +33,9 @@ func (t *TransactionsScreen) Render() fyne.CanvasObject {
 
 	// filter section
 	filterBar := t.createFilterBar()
+
+	// section to list transaction based on filters
+	// transactionList := t.createTransactionList()
 
 	content := container.NewVBox(
 		header,
@@ -51,13 +57,72 @@ func (t *TransactionsScreen) createHeader() fyne.CanvasObject {
 	statLabel := widget.NewLabel(stats)
 
 	// Add transaction button
-	transacAddBtn := widget.NewButton("Add Transaction", func() {})
+	transacAddBtn := widget.NewButton("Add Transaction", func() { t.showAddTransactionDialog() })
 	transacAddBtn.Importance = widget.HighImportance
 
 	// titleRow := container.NewGridWithColumns(2, title, statLabel)
 	titleRow := container.NewBorder(nil, nil, title, statLabel)
 	content := container.NewVBox(titleRow, transacAddBtn)
 	return content
+}
+
+// dialog to add transactions
+func (t *TransactionsScreen) showAddTransactionDialog() {
+	// create form fields
+	typeSelect := widget.NewSelect([]string{"income", "expense"}, nil)
+	typeSelect.SetSelected("income")
+
+	amountEntery := widget.NewEntry()
+	amountEntery.SetPlaceHolder("0.00")
+
+	categorySelectEntry := widget.NewSelectEntry(core.GetCategories())
+	categorySelectEntry.SetPlaceHolder("Category")
+
+	descriptionEntery := widget.NewEntry()
+	descriptionEntery.SetPlaceHolder("Description")
+
+	items := []*widget.FormItem{
+		widget.NewFormItem("Type*", typeSelect),
+		widget.NewFormItem("Amount*", amountEntery),
+		widget.NewFormItem("Category*", categorySelectEntry),
+		widget.NewFormItem("Description", descriptionEntery),
+	}
+
+	formDialog := dialog.NewForm("Add New Transaction", "Add", "Cancel", items, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+
+		var amount float64
+		_, err := fmt.Sscanf(amountEntery.Text, "%f", &amount)
+		if err != nil || amount <= 0 {
+			dialog.ShowInformation("Error", "Please Enter A Valid Number!", t.guiApp.GuiWindow)
+			return
+		}
+
+		if categorySelectEntry.Text == "" {
+			dialog.ShowInformation("Error", "Please Enter A Category!", t.guiApp.GuiWindow)
+			return
+		}
+
+		newTransaction := models.Transaction{
+			ID:          storage.NextTransactionID,
+			Date:        time.Now(),
+			Amount:      amount,
+			Category:    categorySelectEntry.Text,
+			Description: descriptionEntery.Text,
+			Type:        typeSelect.Selected,
+		}
+		core.AddTransaction(newTransaction)
+		storage.SaveData()
+
+		dialog.ShowInformation("Success", "Transaction added successfully!", t.guiApp.GuiWindow)
+		t.guiApp.ShowTransactionsScreen()
+
+	}, t.guiApp.GuiWindow)
+
+	formDialog.Resize(fyne.NewSize(400, 300))
+	formDialog.Show()
 }
 
 func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
@@ -126,3 +191,7 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 
 	return container.NewVBox(filterRow1, filterRow2)
 }
+
+// func (t *TransactionsScreen) createTransactionList() []fyne.CanvasObject{
+
+// }
