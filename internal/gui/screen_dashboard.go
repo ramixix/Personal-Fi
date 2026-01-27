@@ -120,7 +120,8 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 		transacCards = append(transacCards, widget.NewLabel("No Transaction Found. Add Transaction First!"))
 
 	} else {
-		for _, transac := range recentTransactions {
+		for i := len(recentTransactions) - 1; i >= 0; i-- {
+			transac := recentTransactions[i]
 			typeIcon := "💰 ✅"
 			if transac.Type == "expense" {
 				typeIcon = "💸 🔴"
@@ -149,7 +150,8 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 		goalContributionCards = append(goalContributionCards, widget.NewLabel("No Goal Contribution Yet. Add Contirbution First!"))
 	} else {
 
-		for _, contribution := range recentGoalContributions {
+		for i := len(recentGoalContributions) - 1; i >= 0; i-- {
+			contribution := recentGoalContributions[i]
 			goal := core.FindGoal(contribution.GoalID)
 
 			cardTitle := fmt.Sprintf("Contribution ID %d\nContributed To Goal: %s", contribution.ID, goal.Name)
