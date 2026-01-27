@@ -1,10 +1,13 @@
 package gui
 
 import (
+	"errors"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -75,8 +78,27 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	amountEntery := widget.NewEntry()
 	amountEntery.SetPlaceHolder("0.00")
 
+	amountEntery.Validator = func(value string) error {
+		val, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return errors.New("Not a valid number!")
+		}
+		if val <= 0 {
+			return errors.New("Amount must be positive (greater than 0)")
+		}
+		return nil
+	}
+
 	categorySelectEntry := widget.NewSelectEntry(core.GetCategories())
 	categorySelectEntry.SetPlaceHolder("Category")
+
+	categorySelectEntry.Validator = func(value string) error {
+		trimCat := strings.TrimSpace(value)
+		if len(trimCat) <= 2 {
+			return errors.New("Category name too short!")
+		}
+		return nil
+	}
 
 	descriptionEntery := widget.NewEntry()
 	descriptionEntery.SetPlaceHolder("Description")
@@ -93,24 +115,14 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 			return
 		}
 
-		var amount float64
-		_, err := fmt.Sscanf(amountEntery.Text, "%f", &amount)
-		if err != nil || amount <= 0 {
-			dialog.ShowInformation("Error", "Please Enter A Valid Number!", t.guiApp.GuiWindow)
-			return
-		}
-
-		if categorySelectEntry.Text == "" {
-			dialog.ShowInformation("Error", "Please Enter A Category!", t.guiApp.GuiWindow)
-			return
-		}
+		amount, _ := strconv.ParseFloat(amountEntery.Text, 64)
 
 		newTransaction := models.Transaction{
 			ID:          storage.NextTransactionID,
 			Date:        time.Now(),
 			Amount:      amount,
-			Category:    categorySelectEntry.Text,
-			Description: descriptionEntery.Text,
+			Category:    strings.TrimSpace(categorySelectEntry.Text),
+			Description: strings.TrimSpace(descriptionEntery.Text),
 			Type:        typeSelect.Selected,
 		}
 		core.AddTransaction(newTransaction)
@@ -121,7 +133,7 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 
 	}, t.guiApp.GuiWindow)
 
-	formDialog.Resize(fyne.NewSize(400, 300))
+	formDialog.Resize(fyne.NewSize(450, 300))
 	formDialog.Show()
 }
 
