@@ -48,7 +48,7 @@ func AdvancedSearchTransactions(criteria models.SearchCriteria) []models.Transac
 			description := strings.ToLower(transac.Description)
 			category := strings.ToLower(transac.Category)
 
-			if !strings.Contains(description, keyword) || !strings.Contains(category, keyword) {
+			if !strings.Contains(description, keyword) && !strings.Contains(category, keyword) {
 				continue
 			}
 		}

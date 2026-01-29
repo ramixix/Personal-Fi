@@ -19,6 +19,7 @@ import (
 type TransactionsScreen struct {
 	guiApp *GuiApp
 
+	filteredTransactions *fyne.Container
 	// values needed for filtering
 	searchText     string
 	filterType     string
@@ -27,7 +28,7 @@ type TransactionsScreen struct {
 }
 
 func NewTransactionsScreen(app *GuiApp) *TransactionsScreen {
-	return &TransactionsScreen{guiApp: app, filterType: "all", filterCategory: "all", filterPeriod: "all"}
+	return &TransactionsScreen{guiApp: app, filterType: "", filterCategory: "", filterPeriod: "", filteredTransactions: container.NewVBox()}
 }
 
 func (t *TransactionsScreen) Render() fyne.CanvasObject {
@@ -38,12 +39,16 @@ func (t *TransactionsScreen) Render() fyne.CanvasObject {
 	filterBar := t.createFilterBar()
 
 	// section to list transaction based on filters
+	// t.filteredTransactions = container.NewVBox()
+	// t.refereshTransactionList()
 	// transactionList := t.createTransactionList()
 
 	content := container.NewVBox(
 		header,
 		widget.NewSeparator(),
 		filterBar,
+		widget.NewSeparator(),
+		container.NewVScroll(t.filteredTransactions),
 	)
 
 	return container.NewScroll(content)
@@ -141,7 +146,10 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 	// Search Entery
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("🔍 Search transactions...")
-	searchEntry.OnChanged = func(text string) { t.searchText = text }
+	searchEntry.OnChanged = func(text string) {
+		t.searchText = text
+		t.refereshTransactionList()
+	}
 
 	// Filtering Transactions by Type of transaction
 	typeSelect := widget.NewSelect([]string{"All Types", "Income", "Expenses"},
@@ -149,11 +157,12 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 			switch value {
 			case "Income":
 				t.filterType = "income"
-			case "Expneses":
+			case "Expenses":
 				t.filterType = "expense"
 			default:
-				t.filterType = "all"
+				t.filterType = ""
 			}
+			t.refereshTransactionList()
 		})
 	typeSelect.SetSelected("All Types")
 
@@ -168,8 +177,9 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 			case "This Year":
 				t.filterPeriod = "year"
 			default:
-				t.filterPeriod = "all"
+				t.filterPeriod = ""
 			}
+			t.refereshTransactionList()
 		})
 	periodSelect.SetSelected("All Time")
 
@@ -179,23 +189,25 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 	categorySelect := widget.NewSelect(categories,
 		func(value string) {
 			if value == "All Categories" {
-				t.filterCategory = "all"
+				t.filterCategory = ""
 			} else {
 				t.filterCategory = value
 			}
+			t.refereshTransactionList()
 		})
 	categorySelect.SetSelected("All Categories")
 
 	// button to clear all filters and set default selects for selections
 	clearBtn := widget.NewButton("Clear Filters", func() {
 		t.searchText = ""
-		t.filterType = "all"
-		t.filterCategory = "all"
-		t.filterPeriod = "all"
+		t.filterType = ""
+		t.filterCategory = ""
+		t.filterPeriod = ""
 		searchEntry.SetText("")
 		typeSelect.SetSelected("All Types")
 		periodSelect.SetSelected("All Time")
 		categorySelect.SetSelected("All Categories")
+		t.refereshTransactionList()
 	})
 
 	filterRow1 := container.NewGridWithColumns(2, searchEntry, clearBtn)
@@ -204,6 +216,49 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 	return container.NewVBox(filterRow1, filterRow2)
 }
 
-// func (t *TransactionsScreen) createTransactionList() []fyne.CanvasObject{
+func (t *TransactionsScreen) refereshTransactionList() {
+	var transactions []models.Transaction = t.getFilteredTransactions()
+	t.filteredTransactions.Objects = nil
 
-// }
+	if len(transactions) == 0 {
+		t.filteredTransactions.Add(widget.NewLabel("not transction!!!"))
+	} else {
+		for _, trasac := range transactions {
+			message := fmt.Sprintf("%d : %.2f , %s, %s", trasac.ID, trasac.Amount, trasac.Category, trasac.Date)
+			t.filteredTransactions.Add(widget.NewLabel(message))
+		}
+	}
+	t.filteredTransactions.Refresh()
+}
+
+func (t *TransactionsScreen) getFilteredTransactions() []models.Transaction {
+	startDate := time.Now()
+	endDate := time.Now()
+	hasRange := true
+	if t.filterPeriod == "week" {
+		startDate = startDate.AddDate(0, 0, -7)
+	} else if t.filterPeriod == "month" {
+		startDate = startDate.AddDate(0, -1, 0)
+	} else if t.filterPeriod == "year" {
+		startDate = startDate.AddDate(-1, 0, 0)
+	} else {
+		hasRange = false
+	}
+
+	category := []string{t.filterCategory}
+	if strings.TrimSpace(t.filterCategory) == "" {
+		category = []string{}
+	}
+	itemsToSearch := models.SearchCriteria{
+		Keyword:         strings.TrimSpace(t.searchText),
+		Categories:      category,
+		TransactionType: t.filterType,
+		HasDateRange:    hasRange,
+		StartDate:       startDate,
+		EndDate:         endDate,
+	}
+
+	var transactions []models.Transaction = core.AdvancedSearchTransactions(itemsToSearch)
+	fmt.Printf("%d : %s %s %s\n", len(transactions), t.searchText, startDate, endDate)
+	return transactions
+}
