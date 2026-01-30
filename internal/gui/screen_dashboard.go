@@ -3,15 +3,12 @@ package gui
 import (
 	"financial_tracker/internal/core"
 	"fmt"
-	"image/color"
 
 	// "financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -192,32 +189,32 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 
 }
 
-func NewSummaryCard(title, value string) fyne.CanvasObject {
-	bg := canvas.NewRectangle(color.NRGBA{R: 30, G: 30, B: 30, A: 255})
-	bg.StrokeColor = theme.PrimaryColor()
-	bg.StrokeWidth = 2
+// func NewSummaryCard(title, value string) fyne.CanvasObject {
+// 	bg := canvas.NewRectangle(color.NRGBA{R: 30, G: 30, B: 30, A: 255})
+// 	bg.StrokeColor = theme.PrimaryColor()
+// 	bg.StrokeWidth = 2
 
-	titleLabel := widget.NewLabelWithStyle(
-		title,
-		fyne.TextAlignLeading,
-		fyne.TextStyle{Bold: true},
-	)
+// 	titleLabel := widget.NewLabelWithStyle(
+// 		title,
+// 		fyne.TextAlignLeading,
+// 		fyne.TextStyle{Bold: true},
+// 	)
 
-	valueLabel := widget.NewLabelWithStyle(
-		value,
-		fyne.TextAlignLeading,
-		fyne.TextStyle{Bold: true},
-	)
+// 	valueLabel := widget.NewLabelWithStyle(
+// 		value,
+// 		fyne.TextAlignLeading,
+// 		fyne.TextStyle{Bold: true},
+// 	)
 
-	content := container.NewVBox(
-		titleLabel,
-		valueLabel,
-	)
+// 	content := container.NewVBox(
+// 		titleLabel,
+// 		valueLabel,
+// 	)
 
-	card := container.NewPadded(content)
+// 	card := container.NewPadded(content)
 
-	return container.NewStack(bg, card)
-}
+// 	return container.NewStack(bg, card)
+// }
 
 // incomeCard := NewSummaryCard("Income", totalIncomeText)
 // expensesCard := NewSummaryCard("Expenses", totalExpensesText)

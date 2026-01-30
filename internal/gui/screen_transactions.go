@@ -48,7 +48,7 @@ func (t *TransactionsScreen) Render() fyne.CanvasObject {
 		widget.NewSeparator(),
 		filterBar,
 		widget.NewSeparator(),
-		container.NewVScroll(t.filteredTransactions),
+		t.filteredTransactions,
 	)
 
 	return container.NewScroll(content)
@@ -221,13 +221,24 @@ func (t *TransactionsScreen) refereshTransactionList() {
 	t.filteredTransactions.Objects = nil
 
 	if len(transactions) == 0 {
-		t.filteredTransactions.Add(widget.NewLabel("not transction!!!"))
-	} else {
-		for _, trasac := range transactions {
-			message := fmt.Sprintf("%d : %.2f , %s, %s", trasac.ID, trasac.Amount, trasac.Category, trasac.Date)
-			t.filteredTransactions.Add(widget.NewLabel(message))
+		t.filteredTransactions.Add(t.createEmptyState())
+	}
+
+	groupedTransacs := t.groupTransactionsByMonth(transactions)
+
+	var cards []fyne.CanvasObject
+	for monthYear, transactionList := range groupedTransacs {
+		monthYearLable := widget.NewLabelWithStyle(monthYear, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+		cards = append(cards, monthYearLable)
+
+		for _, transac := range transactionList {
+			transactText := fmt.Sprintf("%d, %s, %.2f, %s, %s", transac.ID, transac.Category, transac.Amount, transac.Type, transac.Date)
+			cards = append(cards, widget.NewLabel(transactText))
 		}
 	}
+
+	t.filteredTransactions.Add(container.NewVBox(cards...))
+
 	t.filteredTransactions.Refresh()
 }
 
@@ -261,4 +272,25 @@ func (t *TransactionsScreen) getFilteredTransactions() []models.Transaction {
 	var transactions []models.Transaction = core.AdvancedSearchTransactions(itemsToSearch)
 	fmt.Printf("%d : %s %s %s\n", len(transactions), t.searchText, startDate, endDate)
 	return transactions
+}
+
+func (t *TransactionsScreen) createEmptyState() fyne.CanvasObject {
+	emptyIcon := widget.NewLabelWithStyle("📭", fyne.TextAlignCenter, fyne.TextStyle{})
+	emptyText := widget.NewLabelWithStyle("No Transaction Found!", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	emptyHint := widget.NewLabel("Try adjusting your filters or add a new transaction")
+	addBtn := widget.NewButton("➕ Add Your First Transaction", func() { t.showAddTransactionDialog() })
+	addBtn.Importance = widget.HighImportance
+
+	return container.NewCenter(container.NewVBox(emptyIcon, emptyText, emptyHint, addBtn))
+}
+
+func (t *TransactionsScreen) groupTransactionsByMonth(transactions []models.Transaction) map[string][]models.Transaction {
+	groups := make(map[string][]models.Transaction)
+
+	for _, transac := range transactions {
+		monthYear := transac.Date.Format("January 2006")
+		groups[monthYear] = append(groups[monthYear], transac)
+	}
+	return groups
 }
