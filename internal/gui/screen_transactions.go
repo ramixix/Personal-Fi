@@ -54,6 +54,11 @@ func (t *TransactionsScreen) Render() fyne.CanvasObject {
 	return container.NewScroll(content)
 }
 
+// ------------------------------------------------------------------------------------------------------
+//
+//	Header Section (simple income, expense and net information + add new transaction button)
+//
+// ------------------------------------------------------------------------------------------------------
 func (t *TransactionsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("💰 Transactions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
@@ -141,6 +146,10 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	formDialog.Resize(fyne.NewSize(450, 300))
 	formDialog.Show()
 }
+
+//------------------------------------------------------------------------------------------------------
+//			Filter Bar
+//------------------------------------------------------------------------------------------------------
 
 func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 	// Search Entery
@@ -232,9 +241,10 @@ func (t *TransactionsScreen) refereshTransactionList() {
 		cards = append(cards, monthYearLable)
 
 		for _, transac := range transactionList {
-			transactText := fmt.Sprintf("%d, %s, %.2f, %s, %s", transac.ID, transac.Category, transac.Amount, transac.Type, transac.Date)
-			cards = append(cards, widget.NewLabel(transactText))
+			transactText := t.createTransactionCard(transac)
+			cards = append(cards, transactText)
 		}
+		cards = append(cards, widget.NewSeparator())
 	}
 
 	t.filteredTransactions.Add(container.NewVBox(cards...))
@@ -293,4 +303,30 @@ func (t *TransactionsScreen) groupTransactionsByMonth(transactions []models.Tran
 		groups[monthYear] = append(groups[monthYear], transac)
 	}
 	return groups
+}
+
+func (t *TransactionsScreen) createTransactionCard(transaction models.Transaction) fyne.CanvasObject {
+	icon := "💰"
+	amountPrefix := "+"
+	if transaction.Type == "expense" {
+		icon = "💸"
+		amountPrefix = "-"
+	}
+
+	title := fmt.Sprintf("%s %s", icon, transaction.Category)
+	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	descriptionLabel := widget.NewLabel(transaction.Description)
+	dateLabel := widget.NewLabel(transaction.Date.Format("Jan 2, 2006 15:04"))
+	leftside := container.NewVBox(titleLabel, descriptionLabel, dateLabel)
+
+	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%.2f", amountPrefix, transaction.Amount), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+	editBtn := widget.NewButton("Edit", func() {})
+	deleteBtn := widget.NewButton("Delete", func() {})
+	// editBtn.Importance = widget.LowImportance
+	deleteBtn.Importance = widget.DangerImportance
+	buttons := container.NewHBox(editBtn, deleteBtn)
+	right_side := container.NewVBox(amountLabel, buttons)
+
+	cardContnet := container.NewBorder(nil, nil, leftside, right_side)
+	return widget.NewCard("", "", cardContnet)
 }
