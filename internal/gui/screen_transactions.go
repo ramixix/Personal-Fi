@@ -89,7 +89,7 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	amountEntery.SetPlaceHolder("0.00")
 
 	amountEntery.Validator = func(value string) error {
-		val, err := strconv.ParseFloat(value, 64)
+		val, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
 		if err != nil {
 			return errors.New("Not a valid number!")
 		}
@@ -125,7 +125,7 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 			return
 		}
 
-		amount, _ := strconv.ParseFloat(amountEntery.Text, 64)
+		amount, _ := strconv.ParseFloat(strings.TrimSpace(amountEntery.Text), 64)
 
 		newTransaction := models.Transaction{
 			ID:          storage.NextTransactionID,
@@ -147,9 +147,9 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	formDialog.Show()
 }
 
-//------------------------------------------------------------------------------------------------------
+//----------------------------------
 //			Filter Bar
-//------------------------------------------------------------------------------------------------------
+//----------------------------------
 
 func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 	// Search Entery
@@ -224,6 +224,10 @@ func (t *TransactionsScreen) createFilterBar() fyne.CanvasObject {
 
 	return container.NewVBox(filterRow1, filterRow2)
 }
+
+//--------------------------------------------
+// 			Transactions List
+//--------------------------------------------
 
 func (t *TransactionsScreen) refereshTransactionList() {
 	var transactions []models.Transaction = t.getFilteredTransactions()
@@ -317,16 +321,80 @@ func (t *TransactionsScreen) createTransactionCard(transaction models.Transactio
 	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	descriptionLabel := widget.NewLabel(transaction.Description)
 	dateLabel := widget.NewLabel(transaction.Date.Format("Jan 2, 2006 15:04"))
+
 	leftside := container.NewVBox(titleLabel, descriptionLabel, dateLabel)
 
 	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%.2f", amountPrefix, transaction.Amount), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
-	editBtn := widget.NewButton("Edit", func() {})
+	editBtn := widget.NewButton("Edit", func() { t.showEditTransactionDialog(transaction) })
 	deleteBtn := widget.NewButton("Delete", func() {})
-	// editBtn.Importance = widget.LowImportance
 	deleteBtn.Importance = widget.DangerImportance
 	buttons := container.NewHBox(editBtn, deleteBtn)
+
 	right_side := container.NewVBox(amountLabel, buttons)
 
 	cardContnet := container.NewBorder(nil, nil, leftside, right_side)
 	return widget.NewCard("", "", cardContnet)
+}
+
+func (t *TransactionsScreen) showEditTransactionDialog(transaction models.Transaction) {
+	transactionPointer := core.FindTransaction(transaction.ID)
+	if transactionPointer == nil {
+		dialog.ShowError(fmt.Errorf("Transaction Not Found!"), t.guiApp.GuiWindow)
+		return
+	}
+
+	typeSelect := widget.NewSelect([]string{"income", "expense"}, nil)
+	typeSelect.SetSelected(transactionPointer.Type)
+
+	amountEntry := widget.NewEntry()
+	amountEntry.SetText(fmt.Sprintf("%2.f", transactionPointer.Amount))
+	amountEntry.Validator = func(value string) error {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil {
+			return errors.New("Not a valid amount")
+		}
+		if amount <= 0 {
+			return errors.New("Amount must be positive (greater than 0)")
+		}
+		return nil
+	}
+
+	categorySelectEntry := widget.NewSelectEntry(core.GetCategories())
+	categorySelectEntry.SetText(transactionPointer.Category)
+	categorySelectEntry.Validator = func(cat string) error {
+		trimCat := strings.TrimSpace(cat)
+		if len(trimCat) <= 2 {
+			return errors.New("Category name too short!")
+		}
+		return nil
+	}
+
+	descriptionEntry := widget.NewEntry()
+	descriptionEntry.SetText(transactionPointer.Description)
+
+	formItmes := []*widget.FormItem{
+		widget.NewFormItem("Type", typeSelect),
+		widget.NewFormItem("Amount", amountEntry),
+		widget.NewFormItem("Categroy", categorySelectEntry),
+		widget.NewFormItem("Description", descriptionEntry),
+	}
+
+	formDialog := dialog.NewForm("Edit Transaction", "Edit", "Cancel", formItmes, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+		amount, _ := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
+
+		transactionPointer.Type = typeSelect.Selected
+		transactionPointer.Amount = amount
+		transactionPointer.Category = categorySelectEntry.Text
+		transactionPointer.Description = descriptionEntry.Text
+
+		storage.SaveData()
+		dialog.ShowInformation("Success", "Transaction Updated Sucessfully", t.guiApp.GuiWindow)
+		t.guiApp.ShowTransactionsScreen()
+	}, t.guiApp.GuiWindow)
+
+	formDialog.Resize(fyne.NewSize(450, 300))
+	formDialog.Show()
 }
