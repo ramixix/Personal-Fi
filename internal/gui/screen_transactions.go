@@ -326,7 +326,7 @@ func (t *TransactionsScreen) createTransactionCard(transaction models.Transactio
 
 	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%.2f", amountPrefix, transaction.Amount), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
 	editBtn := widget.NewButton("Edit", func() { t.showEditTransactionDialog(transaction) })
-	deleteBtn := widget.NewButton("Delete", func() {})
+	deleteBtn := widget.NewButton("Delete", func() { t.confirmTransactionDeletion(transaction) })
 	deleteBtn.Importance = widget.DangerImportance
 	buttons := container.NewHBox(editBtn, deleteBtn)
 
@@ -397,4 +397,26 @@ func (t *TransactionsScreen) showEditTransactionDialog(transaction models.Transa
 
 	formDialog.Resize(fyne.NewSize(450, 300))
 	formDialog.Show()
+}
+
+func (t *TransactionsScreen) confirmTransactionDeletion(transac models.Transaction) {
+	confirmDialog := dialog.NewConfirm(
+		"Delete Transaction",
+		fmt.Sprintf("Are you sure you want to delete this transaction?\n\n%s - $%.2f\n%s", transac.Category, transac.Amount, transac.Description),
+		func(confirmed bool) {
+			if confirmed {
+				deleted := core.DeleteTransaction(0, transac.ID)
+				if deleted {
+					storage.SaveData()
+					dialog.ShowInformation("Deleted", "Transaction deleted successfully", t.guiApp.GuiWindow)
+				} else {
+					dialog.ShowInformation("Error", "Could not delete this transaction", t.guiApp.GuiWindow)
+				}
+				t.guiApp.ShowTransactionsScreen()
+			}
+		},
+		t.guiApp.GuiWindow,
+	)
+
+	confirmDialog.Show()
 }
