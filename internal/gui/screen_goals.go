@@ -29,15 +29,23 @@ func (g *GoalsScreen) Render() fyne.CanvasObject {
 
 	header := g.createHeader()
 
+	activeGoals := g.createActiveGoalSection()
+
 	content := container.NewVBox(
 		header,
 		widget.NewSeparator(),
-		widget.NewLabel("Goals tracking page - Coming soon!"),
+		activeGoals,
+		// widget.NewLabel("Goals tracking page - Coming soon!"),
 	)
 
 	return container.NewScroll(content)
 }
 
+// --------------------------
+//
+//	Header
+//
+// --------------------------
 // createHeader creates the header with stats and create button
 func (g *GoalsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("🎯 Goals", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
@@ -49,11 +57,17 @@ func (g *GoalsScreen) createHeader() fyne.CanvasObject {
 	statsLabel := widget.NewLabel(fmt.Sprintf("Active: %d  |  Completed: %d  |  Total Saved: %.2f", activeGoals, completedGoals, totalSaved))
 
 	createBtn := widget.NewButton("➕ New Goal", func() { g.showCreateGoalDialog() })
+	createBtn.Importance = widget.HighImportance
 
 	head := container.NewBorder(nil, nil, title, statsLabel)
 	return container.NewVBox(head, createBtn)
 }
 
+// ----------------------------------
+//
+//	Add Goal Dialog
+//
+// ----------------------------------
 func (g *GoalsScreen) showCreateGoalDialog() {
 
 	nameEntry := widget.NewEntry()
@@ -161,5 +175,37 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 
 	goalCreationDialog.Resize(fyne.NewSize(450, 300))
 	goalCreationDialog.Show()
+
+}
+
+// --------------------------------------
+//
+//	Active Goal Section
+//
+// --------------------------------------
+func (g *GoalsScreen) createActiveGoalSection() fyne.CanvasObject {
+	activeGoals := core.GetActiveGoals()
+
+	sectionTitle := widget.NewLabelWithStyle("🔥 Active Goals", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	if len(activeGoals) == 0 {
+		emptyState := container.NewVBox(
+			widget.NewLabel("🎯"),
+			widget.NewLabel("No active goals yet"),
+			widget.NewLabel("Create your first goal to start tracking your progress!"),
+		)
+		return container.NewVBox(sectionTitle, emptyState)
+	}
+
+	var goalsCard []fyne.CanvasObject
+	for _, goal := range activeGoals {
+		str := fmt.Sprintf("%s, %f, %f, %s", goal.Name, goal.TargetAmount, goal.CurrentAmount, goal.Category)
+		goalsCard = append(goalsCard, widget.NewLabel(str))
+	}
+
+	return container.NewVBox(
+		sectionTitle,
+		container.NewVBox(goalsCard...),
+	)
 
 }
