@@ -85,11 +85,15 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	typeSelect := widget.NewSelect([]string{"income", "expense"}, nil)
 	typeSelect.SetSelected("income")
 
-	amountEntery := widget.NewEntry()
-	amountEntery.SetPlaceHolder("0.00")
+	amountEntry := widget.NewEntry()
+	amountEntry.SetPlaceHolder("0.00")
 
-	amountEntery.Validator = func(value string) error {
-		val, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	amountEntry.Validator = func(value string) error {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return errors.New("amount is required")
+		}
+		val, err := strconv.ParseFloat(trimmed, 64)
 		if err != nil {
 			return errors.New("Not a valid number!")
 		}
@@ -104,6 +108,9 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 
 	categorySelectEntry.Validator = func(value string) error {
 		trimCat := strings.TrimSpace(value)
+		if trimCat == "" {
+			return errors.New("category is required")
+		}
 		if len(trimCat) <= 2 {
 			return errors.New("Category name too short!")
 		}
@@ -113,9 +120,12 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	descriptionEntery := widget.NewEntry()
 	descriptionEntery.SetPlaceHolder("Description")
 
+	_ = amountEntry.Validate()
+	_ = categorySelectEntry.Validate()
+
 	items := []*widget.FormItem{
 		widget.NewFormItem("Type*", typeSelect),
-		widget.NewFormItem("Amount*", amountEntery),
+		widget.NewFormItem("Amount*", amountEntry),
 		widget.NewFormItem("Category*", categorySelectEntry),
 		widget.NewFormItem("Description", descriptionEntery),
 	}
@@ -125,13 +135,19 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 			return
 		}
 
-		amount, _ := strconv.ParseFloat(strings.TrimSpace(amountEntery.Text), 64)
+		amount, err := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
+		category := strings.TrimSpace(categorySelectEntry.Text)
+		if err != nil || amount <= 0 || category == "" {
+			// This is a safety net in case the UI validation is bypassed
+			dialog.ShowError(errors.New("Invalid data submitted"), t.guiApp.GuiWindow)
+			return
+		}
 
 		newTransaction := models.Transaction{
 			ID:          storage.NextTransactionID,
 			Date:        time.Now(),
 			Amount:      amount,
-			Category:    strings.TrimSpace(categorySelectEntry.Text),
+			Category:    category,
 			Description: strings.TrimSpace(descriptionEntery.Text),
 			Type:        typeSelect.Selected,
 		}

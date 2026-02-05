@@ -8,6 +8,7 @@ import (
 	"financial_tracker/internal/utils"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -58,7 +59,7 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("Goal name (e.g., Emergency Fund)")
 	nameEntry.Validator = func(name string) error {
-		if len(name) < 2 {
+		if len(strings.TrimSpace(name)) < 2 {
 			return errors.New("Name too short. Must at least 2 characters.")
 		}
 		return nil
@@ -70,6 +71,10 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 	targetAmountEntry := widget.NewEntry()
 	targetAmountEntry.SetPlaceHolder("0.0")
 	targetAmountEntry.Validator = func(value string) error {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return errors.New("amount is required")
+		}
 		amount, err := strconv.ParseFloat(targetAmountEntry.Text, 64)
 		if err != nil {
 			return errors.New("Amount must be a number.")
@@ -122,9 +127,11 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 			return
 		}
 
-		amount, err := strconv.ParseFloat(targetAmountEntry.Text, 64)
-		if err != nil {
-			dialog.ShowInformation("Error", "Problem With Entry In Target Amount", g.guiApp.GuiWindow)
+		amount, err := strconv.ParseFloat(strings.TrimSpace(targetAmountEntry.Text), 64)
+		name := strings.TrimSpace(nameEntry.Text)
+		if err != nil || amount <= 0 || name == "" {
+			dialog.ShowError(fmt.Errorf("Invalid data submitted"), g.guiApp.GuiWindow)
+			return
 		}
 
 		var deadline time.Time
