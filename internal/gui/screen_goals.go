@@ -35,7 +35,6 @@ func (g *GoalsScreen) Render() fyne.CanvasObject {
 		header,
 		widget.NewSeparator(),
 		activeGoals,
-		// widget.NewLabel("Goals tracking page - Coming soon!"),
 	)
 
 	return container.NewScroll(content)
@@ -199,8 +198,8 @@ func (g *GoalsScreen) createActiveGoalSection() fyne.CanvasObject {
 
 	var goalsCard []fyne.CanvasObject
 	for _, goal := range activeGoals {
-		str := fmt.Sprintf("%s, %f, %f, %s", goal.Name, goal.TargetAmount, goal.CurrentAmount, goal.Category)
-		goalsCard = append(goalsCard, widget.NewLabel(str))
+		card := g.createGoalCard(goal)
+		goalsCard = append(goalsCard, card)
 	}
 
 	return container.NewVBox(
@@ -208,4 +207,90 @@ func (g *GoalsScreen) createActiveGoalSection() fyne.CanvasObject {
 		container.NewVBox(goalsCard...),
 	)
 
+}
+
+// --------------------------------------
+//
+//	Create beautiful card for Goal
+//
+// --------------------------------------
+func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
+	priorityIcon := "🔵"
+	switch goal.Priority {
+	case "high":
+		priorityIcon = "🔴 (High Priority)"
+	case "medium":
+		priorityIcon = "🟡 (Medium Priority)"
+	case "low":
+		priorityIcon = "🟢 (Low Priority)"
+	}
+
+	nameLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s %s", priorityIcon, goal.Name), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	var descriptionLabel *widget.Label
+	if goal.Description != "" {
+		descriptionLabel = widget.NewLabel(goal.Description)
+	}
+
+	progress := core.GetGoalProgress(goal)
+	progressPercent := widget.NewLabelWithStyle(fmt.Sprintf("%.1f%% Completed", progress), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	// progressBar := g.createProgressBar(progress)
+
+	amountLabel := widget.NewLabel(fmt.Sprintf("$%.2f / $%.2f", goal.CurrentAmount, goal.TargetAmount))
+
+	var deadlineLabel *widget.Label
+	var monthlyRequiredContribution *widget.Label
+	if goal.HasDeadline {
+		remainingDays := core.GetRemainingDays(goal)
+		if remainingDays >= 0 {
+			deadlineLabel = widget.NewLabel(fmt.Sprintf("⏰ %d days remaining (Due: %s)", remainingDays, goal.Deadline.Format("Jan 02, 2006")))
+		} else {
+			deadlineLabel = widget.NewLabel(fmt.Sprintf("⚠️ Deadline passed (%s)", goal.Deadline.Format("Jan 02, 2006")))
+		}
+
+		requiredContribution := core.GetRequiredMonthlyContribution(goal)
+		if requiredContribution > 0 {
+			monthlyRequiredContribution = widget.NewLabel(fmt.Sprintf("💡 Need $%.2f/month to meet deadline", requiredContribution))
+		}
+	}
+
+	// Build card content
+	cardContent := container.NewVBox(nameLabel)
+	if descriptionLabel != nil {
+		cardContent.Add(descriptionLabel)
+	}
+	cardContent.Add(progressPercent)
+	// cardContent.Add(progressBar)
+	cardContent.Add(amountLabel)
+	if deadlineLabel != nil {
+		cardContent.Add(deadlineLabel)
+	}
+	if monthlyRequiredContribution != nil {
+		cardContent.Add(monthlyRequiredContribution)
+	}
+
+	// Action buttons
+	contributeBtn := widget.NewButton("➕ Contribute", func() {})
+	contributeBtn.Importance = widget.HighImportance
+
+	viewDetailsBtn := widget.NewButton("📊 Details", func() {})
+
+	editBtn := widget.NewButton("Edit", func() {})
+	editBtn.Importance = widget.LowImportance
+
+	deleteBtn := widget.NewButton("Delete", func() {})
+	deleteBtn.Importance = widget.DangerImportance
+
+	actions := container.NewHBox(
+		contributeBtn,
+		viewDetailsBtn,
+		editBtn,
+		deleteBtn,
+	)
+
+	cardContent.Add(actions)
+
+	card := widget.NewCard("", "", cardContent)
+	return card
 }
