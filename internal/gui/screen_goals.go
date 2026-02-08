@@ -31,10 +31,14 @@ func (g *GoalsScreen) Render() fyne.CanvasObject {
 
 	activeGoals := g.createActiveGoalSection()
 
+	completedGoals := g.createCompletedGoals()
+
 	content := container.NewVBox(
 		header,
 		widget.NewSeparator(),
 		activeGoals,
+		widget.NewSeparator(),
+		completedGoals,
 	)
 
 	return container.NewScroll(content)
@@ -293,4 +297,45 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 
 	card := widget.NewCard("", "", cardContent)
 	return card
+}
+
+// -----------------------
+//
+//	Show Completed Goals
+//
+// -----------------------
+func (g *GoalsScreen) createCompletedGoals() fyne.CanvasObject {
+	completedGoals := core.GetCompletedGoals()
+
+	title := widget.NewLabelWithStyle("✅ Completed Goals", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	if len(completedGoals) == 0 {
+		return container.NewVBox(title, widget.NewLabel("No completed goals yet. Keep working on your active goals!"))
+	}
+
+	var cards []fyne.CanvasObject
+	for _, goal := range completedGoals {
+		goalCard := g.createCompletedGoalCard(goal)
+		cards = append(cards, goalCard)
+	}
+
+	return container.NewVBox(title, container.NewVBox(cards...))
+}
+
+// -------------------------------------
+//
+//	Create Card for Completed Goals
+//
+// -------------------------------------
+func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObject {
+	nameLabel := widget.NewLabelWithStyle(fmt.Sprintf("🏆 %s", goal.Name), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	infoLabel := widget.NewLabel(
+		fmt.Sprintf("Completed: %s | Amount: %.2f", goal.CompletedDate.Format("Jan 02, 2006"), goal.CurrentAmount))
+
+	viewBtn := widget.NewButton("View Details", func() {})
+
+	content := container.NewVBox(nameLabel, infoLabel, viewBtn)
+	return widget.NewCard("", "", content)
+
 }

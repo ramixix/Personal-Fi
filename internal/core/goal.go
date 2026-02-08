@@ -95,7 +95,7 @@ func GetActiveGoals() []models.Goal {
 func GetCompletedGoals() []models.Goal {
 	var completed []models.Goal
 	for _, goal := range storage.Goals {
-		if goal.Status == "completed" {
+		if goal.Status == "complete" {
 			completed = append(completed, goal)
 		}
 	}
@@ -210,7 +210,7 @@ func UpdateGoalStatus(goalID int, newStatus string) bool {
 
 	storage.Goals[goalIndex].Status = newStatus
 
-	if newStatus == "completed" && storage.Goals[goalIndex].CompletedDate.IsZero() {
+	if newStatus == "complete" && storage.Goals[goalIndex].CompletedDate.IsZero() {
 		storage.Goals[goalIndex].CompletedDate = time.Now()
 	}
 

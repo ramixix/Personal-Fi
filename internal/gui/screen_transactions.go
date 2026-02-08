@@ -300,7 +300,6 @@ func (t *TransactionsScreen) getFilteredTransactions() []models.Transaction {
 	}
 
 	var transactions []models.Transaction = core.AdvancedSearchTransactions(itemsToSearch)
-	fmt.Printf("%d : %s %s %s\n", len(transactions), t.searchText, startDate, endDate)
 	return transactions
 }
 
