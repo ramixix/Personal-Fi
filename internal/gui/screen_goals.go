@@ -275,13 +275,13 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 	}
 
 	// Action buttons
-	contributeBtn := widget.NewButton("➕ Contribute", func() {})
+	contributeBtn := widget.NewButton("➕ Contribute", func() { g.showContributeDialog(goal) })
 	contributeBtn.Importance = widget.HighImportance
 
 	viewDetailsBtn := widget.NewButton("📊 Details", func() {})
 
 	editBtn := widget.NewButton("Edit", func() {})
-	editBtn.Importance = widget.LowImportance
+	editBtn.Importance = widget.WarningImportance
 
 	deleteBtn := widget.NewButton("Delete", func() {})
 	deleteBtn.Importance = widget.DangerImportance
@@ -337,5 +337,61 @@ func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObjec
 
 	content := container.NewVBox(nameLabel, infoLabel, viewBtn)
 	return widget.NewCard("", "", content)
+
+}
+
+// -------------------------------------------
+//
+//	Dialog to Add Contribution to a Goal
+//
+// -------------------------------------------
+func (g *GoalsScreen) showContributeDialog(goal models.Goal) {
+	amountEntry := widget.NewEntry()
+	amountEntry.SetPlaceHolder("0.0")
+	amountEntry.Validator = func(value string) error {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
+		if err != nil {
+			return errors.New("Not valid amount")
+		}
+		if amount <= 0 {
+			return errors.New("Amount must be positive (greater than 0)")
+		}
+		return nil
+	}
+
+	noteEntry := widget.NewEntry()
+	noteEntry.SetPlaceHolder("Add Note (Optional)")
+
+	formItems := []*widget.FormItem{
+		widget.NewFormItem("Amount", amountEntry),
+		widget.NewFormItem("Note", noteEntry),
+	}
+
+	contributeDilog := dialog.NewForm(fmt.Sprintf("Contribute to: %s", goal.Name), "Contribute", "Cancel", formItems,
+		func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+
+			amount, err := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
+			if err != nil || amount <= 0 {
+				dialog.ShowError(errors.New("Invalid data submitted"), g.guiApp.GuiWindow)
+				return
+			}
+
+			success := core.AddGoalContribution(goal.ID, amount, strings.TrimSpace(noteEntry.Text), false)
+			if !success {
+				dialog.ShowError(errors.New("failed to add contribution"), g.guiApp.GuiWindow)
+				return
+			}
+			storage.SaveData()
+
+			dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 🎉", amount, goal.Name), g.guiApp.GuiWindow)
+
+			g.guiApp.ShowGoalsScreen()
+		}, g.guiApp.GuiWindow)
+
+	contributeDilog.Resize(fyne.NewSize(450, 300))
+	contributeDilog.Show()
 
 }

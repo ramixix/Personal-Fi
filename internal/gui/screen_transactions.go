@@ -38,11 +38,6 @@ func (t *TransactionsScreen) Render() fyne.CanvasObject {
 	// filter section
 	filterBar := t.createFilterBar()
 
-	// section to list transaction based on filters
-	// t.filteredTransactions = container.NewVBox()
-	// t.refereshTransactionList()
-	// transactionList := t.createTransactionList()
-
 	content := container.NewVBox(
 		header,
 		widget.NewSeparator(),
@@ -340,9 +335,13 @@ func (t *TransactionsScreen) createTransactionCard(transaction models.Transactio
 	leftside := container.NewVBox(titleLabel, descriptionLabel, dateLabel)
 
 	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%.2f", amountPrefix, transaction.Amount), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+
 	editBtn := widget.NewButton("Edit", func() { t.showEditTransactionDialog(transaction) })
+	editBtn.Importance = widget.WarningImportance
+
 	deleteBtn := widget.NewButton("Delete", func() { t.confirmTransactionDeletion(transaction) })
 	deleteBtn.Importance = widget.DangerImportance
+
 	buttons := container.NewHBox(editBtn, deleteBtn)
 
 	right_side := container.NewVBox(amountLabel, buttons)
