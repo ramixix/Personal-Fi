@@ -278,7 +278,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 	contributeBtn := widget.NewButton("➕ Contribute", func() { g.showContributeDialog(goal) })
 	contributeBtn.Importance = widget.HighImportance
 
-	viewDetailsBtn := widget.NewButton("📊 Details", func() {})
+	viewDetailsBtn := widget.NewButton("📊 Details", func() { g.showGoalDetails(goal) })
 
 	editBtn := widget.NewButton("Edit", func() {})
 	editBtn.Importance = widget.WarningImportance
@@ -333,7 +333,7 @@ func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObjec
 	infoLabel := widget.NewLabel(
 		fmt.Sprintf("Completed: %s | Amount: %.2f", goal.CompletedDate.Format("Jan 02, 2006"), goal.CurrentAmount))
 
-	viewBtn := widget.NewButton("View Details", func() {})
+	viewBtn := widget.NewButton("View Details", func() { g.showGoalDetails(goal) })
 
 	content := container.NewVBox(nameLabel, infoLabel, viewBtn)
 	return widget.NewCard("", "", content)
@@ -386,12 +386,83 @@ func (g *GoalsScreen) showContributeDialog(goal models.Goal) {
 			}
 			storage.SaveData()
 
-			dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 🎉", amount, goal.Name), g.guiApp.GuiWindow)
-
+			updatedGoal := core.FindGoal(goal.ID)
+			if updatedGoal != nil && updatedGoal.Status == "complete" {
+				g.showGoalCompletedCelebration(updatedGoal)
+			} else {
+				dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 🎉", amount, goal.Name), g.guiApp.GuiWindow)
+			}
 			g.guiApp.ShowGoalsScreen()
 		}, g.guiApp.GuiWindow)
 
 	contributeDilog.Resize(fyne.NewSize(450, 300))
 	contributeDilog.Show()
+
+}
+
+// -----------------------------------------------------------------------------
+//
+//	show congragratulation message if contribution end up finishing a goal
+//
+// -----------------------------------------------------------------------------
+func (g *GoalsScreen) showGoalCompletedCelebration(goal *models.Goal) {
+	message := fmt.Sprintf("🎉🎊 CONGRATULATIONS! 🎊🎉\nYou've completed your goal:\n%s", goal.Name)
+	celebrationText := widget.NewLabelWithStyle(message, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	amountText := widget.NewLabel(fmt.Sprintf("Amount achieved: $%.2f", goal.TargetAmount))
+
+	content := container.NewVBox(celebrationText, amountText, widget.NewLabel("Keep up the great work!"))
+
+	dialog.ShowCustom("Goal Completed!", "Close", content, g.guiApp.GuiWindow)
+}
+
+// ---------------------------------
+//
+//	Showing Goal Details
+//
+// ---------------------------------
+func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
+	details := fmt.Sprintf("Goal Name: %s\nStatus: %s\nCategory: %s\nPriority: %s\n\nProgress: %.1f%%\nCurrent Amount: %.2f\nTarget Amount: %.2f, Reamining: %.2f",
+		goal.Name, goal.Status, goal.Category, goal.Priority, core.GetGoalProgress(goal), goal.CurrentAmount, goal.TargetAmount, goal.TargetAmount-goal.CurrentAmount)
+
+	if goal.Description != "" {
+		details += fmt.Sprintf("\nDescription: %s\n", goal.Description)
+	}
+
+	if goal.HasDeadline {
+		details += fmt.Sprintf("\nDeadline: %s\n", goal.Deadline.Format("Jan 02, 2006"))
+		remainingDays := core.GetRemainingDays(goal)
+		if remainingDays > 0 {
+			details += fmt.Sprintf("Days remaining: %d\n", remainingDays)
+		}
+	}
+
+	details += fmt.Sprintf("\nCreated: %s\n", goal.Created.Format("Jan 02, 2006"))
+
+	if goal.Status == "completed" {
+		details += fmt.Sprintf("Completed: %s\n", goal.CompletedDate.Format("Jan 02, 2006"))
+	}
+
+	contributionslist := core.GetGoalContributions(goal.ID)
+	contributionCount := len(contributionslist)
+	if contributionCount > 0 {
+		details += fmt.Sprintf("\n--- Recent Contributions (%d total) ---\n", contributionCount)
+		recent := 10
+		endIndex := 0
+		if contributionCount > recent {
+			endIndex = contributionCount - recent
+		}
+		for i := contributionCount - 1; i >= endIndex; i-- {
+			details += fmt.Sprintf("%s: +$%.2f - %s\n", contributionslist[i].Date.Format("Jan 02, 2006"),
+				contributionslist[i].Amount,
+				contributionslist[i].Note)
+		}
+	}
+
+	detailsLabel := widget.NewLabel(details)
+	scrollableContent := container.NewScroll(detailsLabel)
+	scrollableContent.SetMinSize(fyne.NewSize(500, 400))
+
+	dialog.ShowCustom("Goal Details", "Close", scrollableContent, g.guiApp.GuiWindow)
 
 }
