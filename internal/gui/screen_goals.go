@@ -72,7 +72,6 @@ func (g *GoalsScreen) createHeader() fyne.CanvasObject {
 //
 // ----------------------------------
 func (g *GoalsScreen) showCreateGoalDialog() {
-
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("Goal name (e.g., Emergency Fund)")
 	nameEntry.Validator = func(name string) error {
@@ -178,7 +177,6 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 
 	goalCreationDialog.Resize(fyne.NewSize(450, 300))
 	goalCreationDialog.Show()
-
 }
 
 // --------------------------------------
@@ -210,7 +208,6 @@ func (g *GoalsScreen) createActiveGoalSection() fyne.CanvasObject {
 		sectionTitle,
 		container.NewVBox(goalsCard...),
 	)
-
 }
 
 // --------------------------------------
@@ -280,7 +277,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 
 	viewDetailsBtn := widget.NewButton("📊 Details", func() { g.showGoalDetails(goal) })
 
-	editBtn := widget.NewButton("Edit", func() {})
+	editBtn := widget.NewButton("Edit", func() { g.showEditGoalDialog(goal) })
 	editBtn.Importance = widget.WarningImportance
 
 	deleteBtn := widget.NewButton("Delete", func() {})
@@ -337,7 +334,6 @@ func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObjec
 
 	content := container.NewVBox(nameLabel, infoLabel, viewBtn)
 	return widget.NewCard("", "", content)
-
 }
 
 // -------------------------------------------
@@ -397,7 +393,6 @@ func (g *GoalsScreen) showContributeDialog(goal models.Goal) {
 
 	contributeDilog.Resize(fyne.NewSize(450, 300))
 	contributeDilog.Show()
-
 }
 
 // -----------------------------------------------------------------------------
@@ -464,5 +459,119 @@ func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
 	scrollableContent.SetMinSize(fyne.NewSize(500, 400))
 
 	dialog.ShowCustom("Goal Details", "Close", scrollableContent, g.guiApp.GuiWindow)
+}
 
+// ------------------------
+//
+//	Edit Goal Dialog
+//
+// ------------------------
+func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetText(goal.Name)
+	nameEntry.Validator = func(name string) error {
+		if len(strings.TrimSpace(name)) < 2 {
+			return errors.New("Name too short. Must at least 2 characters.")
+		}
+		return nil
+	}
+
+	descriptionEntry := widget.NewEntry()
+	descriptionEntry.SetText(goal.Description)
+
+	targetAmountEntry := widget.NewEntry()
+	targetAmountEntry.SetText(fmt.Sprintf("%f", goal.TargetAmount))
+	targetAmountEntry.Validator = func(value string) error {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return errors.New("amount is required")
+		}
+		amount, err := strconv.ParseFloat(targetAmountEntry.Text, 64)
+		if err != nil {
+			return errors.New("Amount must be a number.")
+		}
+		if amount <= 0 {
+			return errors.New("Amount can not be negative and must be greater than 0.")
+		}
+		return nil
+	}
+
+	categorySelect := widget.NewSelect([]string{"savings", "debt", "investment", "purchase", "other"}, nil)
+	categorySelect.SetSelected(goal.Category)
+
+	prioritySelect := widget.NewSelect([]string{"high", "medium", "low"}, nil)
+	prioritySelect.SetSelected(goal.Priority)
+
+	hasDeadlineCheck := widget.NewCheck("Set a deadline", nil)
+
+	dealineEntry := widget.NewEntry()
+	dealineEntry.SetPlaceHolder("YYYY-MM-DD")
+	if goal.HasDeadline {
+		dealineEntry.SetText(goal.Deadline.Format("2006-01-02"))
+	}
+	dealineEntry.Disable()
+	dealineEntry.Validator = func(s string) error {
+		_, err := utils.ParseDate(dealineEntry.Text)
+		if err != nil {
+			return errors.New("Dealine must be in YYYY-MM-DD format.")
+		}
+		return nil
+	}
+
+	hasDeadlineCheck.OnChanged = func(checked bool) {
+		if checked {
+			dealineEntry.Enable()
+		} else {
+			dealineEntry.Disable()
+		}
+	}
+
+	formItems := []*widget.FormItem{
+		widget.NewFormItem("Name", nameEntry),
+		widget.NewFormItem("Description", descriptionEntry),
+		widget.NewFormItem("Target Amount", targetAmountEntry),
+		widget.NewFormItem("Category", categorySelect),
+		widget.NewFormItem("Priority", prioritySelect),
+		widget.NewFormItem("", hasDeadlineCheck),
+		widget.NewFormItem("Dealine", dealineEntry),
+	}
+
+	goalCreationDialog := dialog.NewForm("Edit Goals", "Edit", "Cancel", formItems, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+
+		amount, err := strconv.ParseFloat(strings.TrimSpace(targetAmountEntry.Text), 64)
+		name := strings.TrimSpace(nameEntry.Text)
+		if err != nil || amount <= 0 || name == "" {
+			dialog.ShowError(fmt.Errorf("Invalid data submitted"), g.guiApp.GuiWindow)
+			return
+		}
+
+		var deadline time.Time
+		if hasDeadlineCheck.Checked {
+			deadline, _ = utils.ParseDate(dealineEntry.Text)
+		}
+
+		goalPointer := core.FindGoal(goal.ID)
+		goalPointer.Name = nameEntry.Text
+		goalPointer.Description = descriptionEntry.Text
+		goalPointer.TargetAmount = amount
+		if hasDeadlineCheck.Checked {
+			goalPointer.HasDeadline = hasDeadlineCheck.Checked
+			goalPointer.Deadline = deadline
+		}
+		goalPointer.Category = categorySelect.Selected
+		goalPointer.Priority = prioritySelect.Selected
+		if goalPointer.CurrentAmount > amount {
+			goalPointer.Status = "complete"
+		}
+		storage.SaveData()
+
+		dialog.ShowInformation("Success", "Goal edited successfully! 🎯", g.guiApp.GuiWindow)
+		g.guiApp.ShowGoalsScreen()
+	}, g.guiApp.GuiWindow)
+
+	goalCreationDialog.Resize(fyne.NewSize(450, 300))
+	goalCreationDialog.Show()
 }
