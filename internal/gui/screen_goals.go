@@ -280,7 +280,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 	editBtn := widget.NewButton("Edit", func() { g.showEditGoalDialog(goal) })
 	editBtn.Importance = widget.WarningImportance
 
-	deleteBtn := widget.NewButton("Delete", func() {})
+	deleteBtn := widget.NewButton("Delete", func() { g.showDeleteGoalDialog(goal) })
 	deleteBtn.Importance = widget.DangerImportance
 
 	actions := container.NewHBox(
@@ -331,8 +331,12 @@ func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObjec
 		fmt.Sprintf("Completed: %s | Amount: %.2f", goal.CompletedDate.Format("Jan 02, 2006"), goal.CurrentAmount))
 
 	viewBtn := widget.NewButton("View Details", func() { g.showGoalDetails(goal) })
+	deleteBtn := widget.NewButton("Delete", func() { g.showDeleteGoalDialog(goal) })
+	deleteBtn.Importance = widget.DangerImportance
 
-	content := container.NewVBox(nameLabel, infoLabel, viewBtn)
+	buttons := container.NewHBox(viewBtn, deleteBtn)
+
+	content := container.NewVBox(nameLabel, infoLabel, buttons)
 	return widget.NewCard("", "", content)
 }
 
@@ -413,7 +417,7 @@ func (g *GoalsScreen) showGoalCompletedCelebration(goal *models.Goal) {
 
 // ---------------------------------
 //
-//	Showing Goal Details
+//	Showing Goal Details Dialog
 //
 // ---------------------------------
 func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
@@ -574,4 +578,30 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 
 	goalCreationDialog.Resize(fyne.NewSize(450, 300))
 	goalCreationDialog.Show()
+}
+
+// ----------------------------
+//
+//	Dialog to delete a goal
+//
+// ----------------------------
+func (g *GoalsScreen) showDeleteGoalDialog(goal models.Goal) {
+	d := dialog.NewConfirm("Delete Goal",
+		fmt.Sprintf("Are you sure you want to delete '%s'?\nThis will also delete all contribution history of this goal.", goal.Name),
+		func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+			deleted := core.DeleteGoal(goal.ID)
+			if deleted {
+				dialog.ShowInformation("Successfull", "Goal has been deleted successfully", g.guiApp.GuiWindow)
+				storage.SaveData()
+			} else {
+				dialog.ShowError(fmt.Errorf("Could not remove selected goal"), g.guiApp.GuiWindow)
+			}
+			g.guiApp.ShowGoalsScreen()
+
+		},
+		g.guiApp.GuiWindow)
+	d.Show()
 }
