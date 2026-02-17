@@ -7,11 +7,13 @@ import (
 	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
 	"fmt"
+	"image/color"
 	"strconv"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
@@ -236,7 +238,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 	progress := core.GetGoalProgress(goal)
 	progressPercent := widget.NewLabelWithStyle(fmt.Sprintf("%.1f%% Completed", progress), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	// progressBar := g.createProgressBar(progress)
+	progressBar := g.createProgressBar(progress)
 
 	amountLabel := widget.NewLabel(fmt.Sprintf("$%.2f / $%.2f", goal.CurrentAmount, goal.TargetAmount))
 
@@ -262,7 +264,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 		cardContent.Add(descriptionLabel)
 	}
 	cardContent.Add(progressPercent)
-	// cardContent.Add(progressBar)
+	cardContent.Add(progressBar)
 	cardContent.Add(amountLabel)
 	if deadlineLabel != nil {
 		cardContent.Add(deadlineLabel)
@@ -294,6 +296,57 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 
 	card := widget.NewCard("", "", cardContent)
 	return card
+}
+
+// -------------------------------------------
+//
+//	Show progress bar for each active goal
+//
+// -------------------------------------------
+type ratioLayout struct {
+	ratio float64
+}
+
+func (r *ratioLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	// The first object is the green bar
+	objects[0].Resize(fyne.NewSize(size.Width*float32(r.ratio), size.Height))
+	objects[0].Move(fyne.NewPos(0, 0))
+}
+
+func (r *ratioLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return fyne.NewSize(0, 15) // Minimum height of 15px
+}
+
+func (g *GoalsScreen) createProgressBar(progressPercentage float64) fyne.CanvasObject {
+	if progressPercentage < 0 {
+		progressPercentage = 0
+	}
+	if progressPercentage > 100 {
+		progressPercentage = 100
+	}
+	ratio := progressPercentage / 100.0
+
+	background := canvas.NewRectangle(color.RGBA{R: 180, G: 180, B: 180, A: 160})
+	background.SetMinSize(fyne.NewSize(0, 15))
+
+	var progressColor color.Color
+	if progressPercentage < 25 {
+		progressColor = color.RGBA{R: 239, G: 68, B: 68, A: 255} // Red
+	} else if progressPercentage < 50 {
+		progressColor = color.RGBA{R: 251, G: 191, B: 36, A: 255} // Orange
+	} else if progressPercentage < 75 {
+		progressColor = color.RGBA{R: 234, G: 179, B: 8, A: 255} // Yellow
+	} else if progressPercentage < 100 {
+		progressColor = color.RGBA{R: 34, G: 197, B: 94, A: 255} // Green
+	} else {
+		progressColor = color.RGBA{R: 16, G: 185, B: 129, A: 255} // Bright Green
+	}
+
+	foreground := canvas.NewRectangle(progressColor)
+	progressLayer := container.New(&ratioLayout{ratio: ratio}, foreground)
+
+	progressText := widget.NewLabelWithStyle(fmt.Sprintf("%.2f%%", progressPercentage), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	return container.NewStack(background, progressLayer, container.NewCenter(progressText))
 }
 
 // -----------------------
