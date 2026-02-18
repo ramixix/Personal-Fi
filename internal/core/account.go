@@ -70,3 +70,13 @@ func GetTotalAccountBalance() float64 {
 	}
 	return total
 }
+
+func GetAccountTransactions(accoundId int) []models.AccountTransaction {
+	var transactionList []models.AccountTransaction
+	for _, transac := range storage.AccountTransactions {
+		if transac.AccountID == accoundId {
+			transactionList = append(transactionList, transac)
+		}
+	}
+	return transactionList
+}

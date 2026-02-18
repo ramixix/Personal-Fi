@@ -2,6 +2,7 @@ package gui
 
 import (
 	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
 
@@ -21,15 +22,22 @@ func NewAccountsScreen(app *GuiApp) *AccountsScreen {
 func (a *AccountsScreen) Render() fyne.CanvasObject {
 	header := a.createHeader()
 
+	accountGrid := a.createAccountsGrid()
+
 	content := container.NewVBox(
 		header,
 		widget.NewSeparator(),
-		widget.NewLabel("Accounts management page - Coming soon!"),
+		accountGrid,
 	)
 
 	return container.NewScroll(content)
 }
 
+// -------------------------------------------------------------------------------------------------------------------
+//
+//	Account header which shows account number, total balance across accounts and a button to add new accouts
+//
+// -------------------------------------------------------------------------------------------------------------------
 func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("🏦 Accounts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
@@ -43,4 +51,70 @@ func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 
 	header := container.NewBorder(nil, nil, title, statsLabel)
 	return container.NewVBox(header, addNewAccountBtn)
+}
+
+// --------------------------------------------------
+//
+//	create grid of account cards with 2 columns
+//
+// --------------------------------------------------
+func (a *AccountsScreen) createAccountsGrid() fyne.CanvasObject {
+	if len(storage.Accounts) == 0 {
+		return widget.NewLabel("assdfasdf")
+	}
+
+	var cards []fyne.CanvasObject
+	for _, acc := range storage.Accounts {
+		card := a.createAccountCard(acc)
+		cards = append(cards, card)
+	}
+
+	return container.NewGridWithColumns(2, cards...)
+}
+
+// ---------------------------
+//
+//	Create Account Card
+//
+// ---------------------------
+func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasObject {
+	nameLabel := widget.NewLabelWithStyle(account.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	balanceLabel := widget.NewLabelWithStyle(fmt.Sprintf("%.2f", account.Balance), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	createdTimeLabel := widget.NewLabel(fmt.Sprintf("Created: %s", account.Created.Format("Jan 02, 2006")))
+
+	AccountTransactionCount := len(core.GetAccountTransactions(account.ID))
+	AccountTransactionCountLabel := widget.NewLabel(fmt.Sprintf("%d Number of Account Transactions", AccountTransactionCount))
+
+	// balanceBar := a.createBalanceIndicator(account.Balance)
+
+	// Buttons
+	addMoneyBtn := widget.NewButton("➕ Add Money", func() {})
+	addMoneyBtn.Importance = widget.HighImportance
+
+	viewHistoryBtn := widget.NewButton("📊 History", func() {})
+
+	editBtn := widget.NewButton("Edit", func() {})
+	editBtn.Importance = widget.WarningImportance
+
+	deleteBtn := widget.NewButton("Delete", func() {})
+	deleteBtn.Importance = widget.DangerImportance
+
+	actions := container.NewVBox(
+		container.NewGridWithColumns(2, addMoneyBtn, viewHistoryBtn),
+		container.NewGridWithColumns(2, editBtn, deleteBtn),
+	)
+
+	cardContent := container.NewVBox(
+		nameLabel,
+		balanceLabel,
+		// balanceBar,
+		createdTimeLabel,
+		AccountTransactionCountLabel,
+		widget.NewSeparator(),
+		actions,
+	)
+
+	card := widget.NewCard("", "", cardContent)
+	return card
+
 }
