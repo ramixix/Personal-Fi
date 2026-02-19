@@ -26,6 +26,12 @@ func DeleteAccount(accountId int) bool {
 	return false
 }
 
+// fucntion to add account to account list
+func AddAccount(account models.Account) {
+	storage.Accounts = append(storage.Accounts, account)
+	storage.NextAccountID++
+}
+
 // Find account by ID
 func FindAccount(id int) *models.Account {
 	for i := range storage.Accounts {

@@ -1,13 +1,17 @@
 package gui
 
 import (
+	"errors"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
+	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -46,7 +50,7 @@ func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 
 	statsLabel := widget.NewLabel(fmt.Sprintf("Total Accounts: %d | Total Balance: %.2f", accountCount, accountTotals))
 
-	addNewAccountBtn := widget.NewButton("Add new account", func() {})
+	addNewAccountBtn := widget.NewButton("Add new account", func() { a.showCreateAccountDialog() })
 	addNewAccountBtn.Importance = widget.HighImportance
 
 	header := container.NewBorder(nil, nil, title, statsLabel)
@@ -60,7 +64,7 @@ func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 // --------------------------------------------------
 func (a *AccountsScreen) createAccountsGrid() fyne.CanvasObject {
 	if len(storage.Accounts) == 0 {
-		return widget.NewLabel("assdfasdf")
+		return a.createEmptyState()
 	}
 
 	var cards []fyne.CanvasObject
@@ -117,4 +121,60 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	card := widget.NewCard("", "", cardContent)
 	return card
 
+}
+
+// ---------------------------------------------------------------
+//
+//	message to show if there is not account availble to show
+//
+// ---------------------------------------------------------------
+func (a *AccountsScreen) createEmptyState() fyne.CanvasObject {
+	emptyIcon := widget.NewLabelWithStyle("🏦", fyne.TextAlignCenter, fyne.TextStyle{})
+	message := widget.NewLabelWithStyle("No accounts yet!", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	createBtn := widget.NewButton("➕ Create Your First Account", func() { a.showCreateAccountDialog() })
+	createBtn.Importance = widget.HighImportance
+
+	return container.NewVBox(emptyIcon, message, createBtn)
+}
+
+// ----------------------------------
+//
+//	Dialog to create new accounts
+//
+// ----------------------------------
+func (a *AccountsScreen) showCreateAccountDialog() {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Account name (e.g., Emergency Fund, Vacation)")
+	nameEntry.Validator = func(value string) error {
+		if len(strings.TrimSpace(value)) < 2 {
+			return errors.New("Name too short. Must be at least 2 characters.")
+		}
+		return nil
+	}
+
+	formItems := []*widget.FormItem{
+		widget.NewFormItem("Account Name", nameEntry),
+	}
+
+	createAccountDialog := dialog.NewForm("Create Account", "Create", "Cancel", formItems, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+
+		if len(strings.TrimSpace(nameEntry.Text)) < 2 {
+			dialog.ShowError(fmt.Errorf("Not a valid account name. Must at least contains 2 characters."), a.guiApp.GuiWindow)
+			return
+		}
+
+		newAccount := models.Account{ID: storage.NextAccountID, Name: nameEntry.Text, Balance: 0, Created: time.Now()}
+		core.AddAccount(newAccount)
+		storage.SaveData()
+
+		dialog.ShowInformation("Success", fmt.Sprintf("Account '%s' created! 🎉", newAccount.Name), a.guiApp.GuiWindow)
+		a.guiApp.ShowAccountsScreen()
+	},
+		a.guiApp.GuiWindow)
+
+	createAccountDialog.Resize(fyne.NewSize(400, 200))
+	createAccountDialog.Show()
 }

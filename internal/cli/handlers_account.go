@@ -61,8 +61,7 @@ func handleCreateAccount() {
 		Created: time.Now(),
 	}
 
-	storage.Accounts = append(storage.Accounts, newAccount)
-	storage.NextAccountID += 1
+	core.AddAccount(newAccount)
 
 	fmt.Printf("✓ Account '%s' created successfully! ID: %d\n", accountName, newAccount.ID)
 }

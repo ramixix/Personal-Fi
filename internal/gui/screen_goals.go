@@ -78,7 +78,7 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 	nameEntry.SetPlaceHolder("Goal name (e.g., Emergency Fund)")
 	nameEntry.Validator = func(name string) error {
 		if len(strings.TrimSpace(name)) < 2 {
-			return errors.New("Name too short. Must at least 2 characters.")
+			return errors.New("Name too short. Must be at least 2 characters.")
 		}
 		return nil
 	}
