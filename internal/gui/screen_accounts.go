@@ -6,6 +6,7 @@ import (
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,7 +93,7 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	// balanceBar := a.createBalanceIndicator(account.Balance)
 
 	// Buttons
-	addMoneyBtn := widget.NewButton("➕ Add Money", func() {})
+	addMoneyBtn := widget.NewButton("➕ Add Money", func() { a.addMoneyToAccountDialog(account) })
 	addMoneyBtn.Importance = widget.HighImportance
 
 	viewHistoryBtn := widget.NewButton("📊 History", func() {})
@@ -177,4 +178,54 @@ func (a *AccountsScreen) showCreateAccountDialog() {
 
 	createAccountDialog.Resize(fyne.NewSize(400, 200))
 	createAccountDialog.Show()
+}
+
+// -----------------------------------
+//
+//	Dialog to add money to account
+//
+// -----------------------------------
+func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
+	amountEntry := widget.NewEntry()
+	amountEntry.SetPlaceHolder("0.0")
+	amountEntry.Validator = func(value string) error {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if err != nil {
+			return errors.New("Please enter a valid number.")
+		}
+		if amount <= 0 {
+			return errors.New("Amount to add must be positive and greater than zero")
+		}
+		return nil
+	}
+
+	noteEntry := widget.NewEntry()
+	noteEntry.SetPlaceHolder("Note (optional)")
+
+	addMoneyFormitems := []*widget.FormItem{
+		widget.NewFormItem("Amount", amountEntry),
+		widget.NewFormItem("Note", noteEntry),
+	}
+
+	addMoneyDialog := dialog.NewForm(fmt.Sprintf("Add Money to: %s", account.Name), "Add", "Cancel", addMoneyFormitems, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+
+		amount, err := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
+		if err != nil || amount <= 0 {
+			dialog.ShowError(fmt.Errorf("please enter a valid amount"), a.guiApp.GuiWindow)
+			return
+		}
+
+		accountPointer := core.FindAccount(account.ID)
+		core.AddMoneyToAccount(accountPointer, amount, noteEntry.Text)
+		storage.SaveData()
+
+		dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 💰", amount, account.Name), a.guiApp.GuiWindow)
+		a.guiApp.ShowAccountsScreen()
+	}, a.guiApp.GuiWindow)
+
+	addMoneyDialog.Resize(fyne.NewSize(400, 250))
+	addMoneyDialog.Show()
 }
