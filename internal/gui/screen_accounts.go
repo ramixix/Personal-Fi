@@ -96,7 +96,7 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	addMoneyBtn := widget.NewButton("➕ Add Money", func() { a.addMoneyToAccountDialog(account) })
 	addMoneyBtn.Importance = widget.HighImportance
 
-	viewHistoryBtn := widget.NewButton("📊 History", func() {})
+	viewHistoryBtn := widget.NewButton("📊 History", func() { a.showAccountHistoryDialog(account) })
 
 	editBtn := widget.NewButton("Edit", func() {})
 	editBtn.Importance = widget.WarningImportance
@@ -228,4 +228,44 @@ func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
 
 	addMoneyDialog.Resize(fyne.NewSize(400, 250))
 	addMoneyDialog.Show()
+}
+
+// ----------------------------------------------------------------------
+//
+//	Dialog to show account history (history == account transactions)
+//
+// ----------------------------------------------------------------------
+func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
+	accountTransactions := core.GetAccountTransactions(account.ID)
+
+	if len(accountTransactions) == 0 {
+		dialog.ShowInformation(fmt.Sprintf("%s Account History", account.Name), "No transactions for this account yet!", a.guiApp.GuiWindow)
+		return
+	}
+
+	historyText := fmt.Sprintf("Account: %s\nCurrent Balance: $%.2f\n\n", account.Name, account.Balance)
+	historyText += "--- Transaction History ---\n\n"
+
+	for i := len(accountTransactions) - 1; i >= 0; i-- {
+		accTransac := accountTransactions[i]
+		historyText += fmt.Sprintf("Date: %s\nAmount: %.2f\nNote: %s\n\n", accTransac.Date, accTransac.Amount, accTransac.Note)
+	}
+
+	historyLabel := widget.NewLabel(historyText)
+	scrollContainer := container.NewScroll(historyLabel)
+	scrollContainer.SetMinSize(fyne.NewSize(400, 300))
+
+	statsLabel := widget.NewLabel(fmt.Sprintf("\n--- Statistics ---\nTotal Contributions: %d\nTotal Added: $%.2f\nAverage: $%.2f",
+		len(accountTransactions),
+		account.Balance,
+		account.Balance/float64(len(accountTransactions))))
+
+	bottomSection := container.NewVBox(
+		widget.NewSeparator(),
+		statsLabel,
+	)
+
+	// Unlike VBox, which treats everyone "equally squished," the Border layout gives the bottomSection exactly the height it needs and then forces the scrollContainer in the center to stretch and fill the rest of the window.
+	content := container.NewBorder(nil, bottomSection, nil, nil, scrollContainer)
+	dialog.ShowCustom(fmt.Sprintf("%s Account History", account.Name), "Close", content, a.guiApp.GuiWindow)
 }
