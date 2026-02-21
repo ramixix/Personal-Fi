@@ -101,7 +101,7 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	editBtn := widget.NewButton("Edit", func() {})
 	editBtn.Importance = widget.WarningImportance
 
-	deleteBtn := widget.NewButton("Delete", func() {})
+	deleteBtn := widget.NewButton("Delete", func() { a.deleteAccountDialog(account) })
 	deleteBtn.Importance = widget.DangerImportance
 
 	actions := container.NewVBox(
@@ -248,7 +248,7 @@ func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
 
 	for i := len(accountTransactions) - 1; i >= 0; i-- {
 		accTransac := accountTransactions[i]
-		historyText += fmt.Sprintf("Date: %s\nAmount: %.2f\nNote: %s\n\n", accTransac.Date, accTransac.Amount, accTransac.Note)
+		historyText += fmt.Sprintf("Date: %s\nAmount: %.2f\nNote: %s\n\n", accTransac.Date.Format("02/01/2006 15:04:05"), accTransac.Amount, accTransac.Note)
 	}
 
 	historyLabel := widget.NewLabel(historyText)
@@ -268,4 +268,32 @@ func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
 	// Unlike VBox, which treats everyone "equally squished," the Border layout gives the bottomSection exactly the height it needs and then forces the scrollContainer in the center to stretch and fill the rest of the window.
 	content := container.NewBorder(nil, bottomSection, nil, nil, scrollContainer)
 	dialog.ShowCustom(fmt.Sprintf("%s Account History", account.Name), "Close", content, a.guiApp.GuiWindow)
+}
+
+// --------------------------------
+//
+//	Dialog to delete accounts
+//
+// --------------------------------
+func (a *AccountsScreen) deleteAccountDialog(account models.Account) {
+	deleteDialog := dialog.NewConfirm(fmt.Sprintf("%s Account Deletion", account.Name),
+		fmt.Sprintf("Are you sure you want to remove %s from account list. All transaction belonging to this account will be also deleted", account.Name),
+		func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+			deleted := core.DeleteAccount(account.ID)
+			if !deleted {
+				dialog.ShowError(fmt.Errorf("Could not delete account and related transactions"), a.guiApp.GuiWindow)
+				return
+			}
+			dialog.ShowInformation("Successful Deletion", "Account and related transaction are all deleted.", a.guiApp.GuiWindow)
+			storage.SaveData()
+			a.guiApp.ShowAccountsScreen()
+		},
+		a.guiApp.GuiWindow,
+	)
+
+	deleteDialog.Resize(fyne.NewSize(350, 200))
+	deleteDialog.Show()
 }
