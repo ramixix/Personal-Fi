@@ -90,15 +90,13 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	AccountTransactionCount := len(core.GetAccountTransactions(account.ID))
 	AccountTransactionCountLabel := widget.NewLabel(fmt.Sprintf("%d Number of Account Transactions", AccountTransactionCount))
 
-	// balanceBar := a.createBalanceIndicator(account.Balance)
-
 	// Buttons
 	addMoneyBtn := widget.NewButton("➕ Add Money", func() { a.addMoneyToAccountDialog(account) })
 	addMoneyBtn.Importance = widget.HighImportance
 
 	viewHistoryBtn := widget.NewButton("📊 History", func() { a.showAccountHistoryDialog(account) })
 
-	editBtn := widget.NewButton("Edit", func() {})
+	editBtn := widget.NewButton("Edit", func() { a.editAccountDialog(account) })
 	editBtn.Importance = widget.WarningImportance
 
 	deleteBtn := widget.NewButton("Delete", func() { a.deleteAccountDialog(account) })
@@ -112,7 +110,6 @@ func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasOb
 	cardContent := container.NewVBox(
 		nameLabel,
 		balanceLabel,
-		// balanceBar,
 		createdTimeLabel,
 		AccountTransactionCountLabel,
 		widget.NewSeparator(),
@@ -270,6 +267,48 @@ func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
 	dialog.ShowCustom(fmt.Sprintf("%s Account History", account.Name), "Close", content, a.guiApp.GuiWindow)
 }
 
+// ----------------------------------------
+//
+//	Dialog to edit account information
+//
+// ----------------------------------------
+func (a *AccountsScreen) editAccountDialog(account models.Account) {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetText(account.Name)
+	nameEntry.Validator = func(value string) error {
+		if len(strings.TrimSpace(value)) < 2 {
+			return errors.New("Name too short. Must be at least 2 characters.")
+		}
+		return nil
+	}
+
+	formItems := []*widget.FormItem{widget.NewFormItem("Account Name", nameEntry)}
+
+	editDialog := dialog.NewForm("Edit Account", "Save", "Cancel", formItems, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+		accountPointer := core.FindAccount(account.ID)
+		if accountPointer == nil {
+			dialog.ShowError(fmt.Errorf("account not found"), a.guiApp.GuiWindow)
+			return
+		}
+
+		if nameEntry.Text == "" {
+			dialog.ShowError(fmt.Errorf("please enter a valid account name"), a.guiApp.GuiWindow)
+			return
+		}
+		accountPointer.Name = nameEntry.Text
+		storage.SaveData()
+		dialog.ShowInformation("Success", "Account updated successfully!", a.guiApp.GuiWindow)
+		a.guiApp.ShowAccountsScreen()
+	},
+		a.guiApp.GuiWindow)
+
+	editDialog.Resize(fyne.NewSize(400, 200))
+	editDialog.Show()
+}
+
 // --------------------------------
 //
 //	Dialog to delete accounts
@@ -294,6 +333,6 @@ func (a *AccountsScreen) deleteAccountDialog(account models.Account) {
 		a.guiApp.GuiWindow,
 	)
 
-	deleteDialog.Resize(fyne.NewSize(350, 200))
+	deleteDialog.Resize(fyne.NewSize(400, 200))
 	deleteDialog.Show()
 }
