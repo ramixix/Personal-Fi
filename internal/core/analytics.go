@@ -121,7 +121,7 @@ func GetCategoryBreakdown(transactionType string) []models.CategoryReport {
 		if !doesExists {
 			categoryData[transactionCategory] = &models.CategoryReport{Category: transactionCategory}
 		}
-		categoryData[transactionCategory].Amount = transac.Amount
+		categoryData[transactionCategory].Amount += transac.Amount
 		categoryData[transactionCategory].Count++
 		total += transac.Amount
 	}
