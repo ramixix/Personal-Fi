@@ -63,8 +63,9 @@ func (d *DashboardScreen) createSummaryCards() fyne.CanvasObject {
 	// if netWorth >0 then + otherwise -
 	netWorthText := ""
 	if netWorth > 0 {
-		netWorthText = fmt.Sprintf("+ $%.2f", netWorth)
+		netWorthText = "+ "
 	}
+	netWorthText += fmt.Sprintf("%.2f", netWorth)
 
 	// Average Montly Income/Expenses and Net of All time
 	// avgIncome, avgExpenses := core.GetMonthlyAverage()

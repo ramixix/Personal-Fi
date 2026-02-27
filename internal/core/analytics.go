@@ -47,26 +47,26 @@ func GetMonthlyReports() []models.MonthlyReport {
 }
 
 // Get report for a specific month
-// func getMonthReport(year int, month time.Month) models.MonthlyReport {
-// 	report := models.MonthlyReport{
-// 		Year:  year,
-// 		Month: month,
-// 	}
+func GetSpecificMonthYearReport(year int, month time.Month) models.MonthlyReport {
+	report := models.MonthlyReport{
+		Year:  year,
+		Month: month,
+	}
 
-// 	for _, transaction := range storage.Transactions {
-// 		if transaction.Date.Year() == year && transaction.Date.Month() == month {
-// 			if transaction.Type == "income" {
-// 				report.Income += transaction.Amount
-// 			} else {
-// 				report.Expenses += transaction.Amount
-// 			}
-// 			report.TxCount++
-// 		}
-// 	}
+	for _, transaction := range storage.Transactions {
+		if transaction.Date.Year() == year && transaction.Date.Month() == month {
+			if transaction.Type == "income" {
+				report.Income += transaction.Amount
+			} else {
+				report.Expenses += transaction.Amount
+			}
+			report.TxCount++
+		}
+	}
 
-// 	report.Net = report.Income - report.Expenses
-// 	return report
-// }
+	report.Net = report.Income - report.Expenses
+	return report
+}
 
 func GetYearlyReports() []models.MonthlyReport {
 	yearlyData := make(map[int]*models.MonthlyReport)

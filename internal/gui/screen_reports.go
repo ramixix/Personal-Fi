@@ -5,6 +5,7 @@ import (
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
+	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -118,8 +119,7 @@ func (r *ReportsScreen) setReportType() fyne.CanvasObject {
 func (r *ReportsScreen) createReportContent() fyne.CanvasObject {
 	switch r.reportType {
 	case "monthly":
-		// return r.createMonthlyReport()
-		return nil
+		return r.createMonthlyReport()
 	case "category":
 		// return r.createCategoryReport()
 		return nil
@@ -219,5 +219,96 @@ func (r *ReportsScreen) createOverviewReport() fyne.CanvasObject {
 		topCategoriesSection,
 		categoryCardGrid,
 	)
+	return content
+}
+
+// ---------------------------------------------
+//
+//	creates monthly financial report screen
+//
+// ---------------------------------------------
+func (r *ReportsScreen) createMonthlyReport() fyne.CanvasObject {
+	monthlyReportTitle := widget.NewLabelWithStyle("Monthly Financial Report", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	currentYear := time.Now().Year()
+	var decadeList []string
+	for year := currentYear; year >= currentYear-10; year-- {
+		decadeList = append(decadeList, fmt.Sprintf("%d", year))
+	}
+
+	yearSelectEntry := widget.NewSelect(decadeList, nil)
+	yearSelectEntry.SetSelected(fmt.Sprintf("%d", r.selectedYear))
+	yearSelectEntry.OnChanged = func(year string) {
+		yearInt, err := strconv.Atoi(year)
+		if err == nil {
+			r.selectedYear = yearInt
+			r.guiApp.ShowReportsScreen()
+		}
+	}
+
+	months := []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+	monthSelect := widget.NewSelect(months, nil)
+	monthSelect.SetSelected(r.selectedMonth.String())
+	monthSelect.OnChanged = func(monthSelected string) {
+		for index, m := range months {
+			if m == monthSelected {
+				r.selectedMonth = time.Month(index + 1)
+				break
+			}
+		}
+		r.guiApp.ShowReportsScreen()
+	}
+
+	selectorGrid := container.NewGridWithColumns(2,
+		container.NewBorder(nil, nil, widget.NewLabel("Year:"), nil, yearSelectEntry),
+		container.NewBorder(nil, nil, widget.NewLabel("Month:"), nil, monthSelect),
+	)
+
+	report := core.GetSpecificMonthYearReport(r.selectedYear, r.selectedMonth)
+
+	reportTitle := fmt.Sprintf("%s %d Report", r.selectedMonth.String(), r.selectedYear)
+	reportContent := widget.NewLabelWithStyle(
+		fmt.Sprintf("Income:\t%-10.2f\nExpenses:\t%-10.2f\nNet:\t%-10.2f", report.Income, report.Expenses, report.Net),
+		fyne.TextAlignLeading,
+		fyne.TextStyle{Bold: true})
+	reportCard := widget.NewCard(reportTitle, fmt.Sprintf("Transactions Number:\t%d", report.TxCount), reportContent)
+
+	// Category Section
+	var specificYearMonthTransactions []models.Transaction
+	for _, transac := range storage.Transactions {
+		if transac.Date.Year() == r.selectedYear && transac.Date.Month() == r.selectedMonth {
+			specificYearMonthTransactions = append(specificYearMonthTransactions, transac)
+		}
+	}
+
+	categoriesAndAmounts := make(map[string]float64)
+	for _, transac := range specificYearMonthTransactions {
+		if transac.Type == "income" {
+			categoriesAndAmounts[transac.Category] += transac.Amount
+		} else {
+			categoriesAndAmounts[transac.Category] -= transac.Amount
+		}
+	}
+
+	var categoryWidgetList []fyne.CanvasObject
+	for cat, amount := range categoriesAndAmounts {
+		cateType := "Income"
+		if amount < 0 {
+			cateType = "Expense"
+		}
+		lable := widget.NewLabelWithStyle(fmt.Sprintf("(%8s) %-10s: %-10.2f", cateType, cat, amount), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+		categoryWidgetList = append(categoryWidgetList, lable)
+	}
+	categoryCard := widget.NewCard(fmt.Sprintf("%s %d Category Breakdown", r.selectedMonth.String(), r.selectedYear), "", container.NewVBox(categoryWidgetList...))
+
+	content := container.NewVBox(
+		monthlyReportTitle,
+		selectorGrid,
+		widget.NewSeparator(),
+		reportCard,
+		widget.NewSeparator(),
+		categoryCard,
+	)
+
 	return content
 }
