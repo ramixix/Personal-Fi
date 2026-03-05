@@ -41,10 +41,9 @@ func (r *ReportsScreen) Render() fyne.CanvasObject {
 		header,
 		widget.NewSeparator(),
 		reportSelector,
-		reportContent,
 	)
 
-	return container.NewScroll(content)
+	return container.NewScroll(container.NewBorder(content, nil, nil, nil, reportContent))
 }
 
 // ----------------------------------------------
@@ -121,8 +120,7 @@ func (r *ReportsScreen) createReportContent() fyne.CanvasObject {
 	case "monthly":
 		return r.createMonthlyReport()
 	case "category":
-		// return r.createCategoryReport()
-		return nil
+		return r.createCategoryReport()
 	case "comparison":
 		// return r.createComparisonReport()
 		return nil
@@ -311,4 +309,97 @@ func (r *ReportsScreen) createMonthlyReport() fyne.CanvasObject {
 	)
 
 	return content
+}
+
+// ---------------------------------------
+//
+//	category breakdown report screen
+//
+// ---------------------------------------
+func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
+	sectionTitle := widget.NewLabelWithStyle("Category Breakdown", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	var table *widget.Table
+	categoryReports := core.GetCategoryBreakdown("expense")
+
+	categoryTypeSelection := widget.NewSelect([]string{"Income", "Expenses", "Both"}, nil)
+	categoryTypeSelection.SetSelected("Expenses")
+	categoryTypeSelection.OnChanged = func(selected string) {
+		var transactionType string
+		switch selected {
+		case "Income":
+			transactionType = "income"
+		case "Expenses":
+			transactionType = "expense"
+		default:
+			transactionType = ""
+		}
+
+		categoryReports = core.GetCategoryBreakdown(transactionType)
+		table.Refresh()
+
+	}
+
+	if len(categoryReports) == 0 {
+		return container.NewVBox(
+			sectionTitle,
+			categoryTypeSelection,
+			widget.NewLabel("No data available"),
+		)
+	}
+
+	table = widget.NewTable(
+		func() (int, int) {
+			return len(categoryReports) + 1, 5 // rows, columns
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			label := obj.(*widget.Label)
+
+			// Header row
+			if id.Row == 0 {
+				headers := []string{"No.", "Category", "Amount", "Count", "Percentage"}
+				label.SetText(headers[id.Col])
+				label.TextStyle = fyne.TextStyle{Bold: true}
+				return
+			}
+
+			category := categoryReports[id.Row-1]
+
+			switch id.Col {
+			case 0:
+				label.SetText(fmt.Sprintf("%d", id.Row))
+			case 1:
+				label.SetText(category.Category)
+			case 2:
+				label.SetText(fmt.Sprintf("%.2f", category.Amount))
+			case 3:
+				label.SetText(fmt.Sprintf("%d", category.Count))
+			case 4:
+				label.SetText(fmt.Sprintf("%.1f%%", category.Percent))
+			}
+		},
+	)
+
+	table.SetColumnWidth(0, 50)
+	table.SetColumnWidth(1, 200)
+	table.SetColumnWidth(2, 120)
+	table.SetColumnWidth(3, 100)
+	table.SetColumnWidth(4, 120)
+
+	header := container.NewVBox(
+		sectionTitle,
+		categoryTypeSelection,
+		widget.NewSeparator(),
+	)
+
+	return container.NewBorder(
+		header, // top
+		nil,    // bottom
+		nil,    // left
+		nil,    // right
+		table,  // center -> fills all remaining space
+	)
 }
