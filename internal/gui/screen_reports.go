@@ -6,6 +6,7 @@ import (
 	"financial_tracker/internal/storage"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -350,7 +351,7 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 
 	table = widget.NewTable(
 		func() (int, int) {
-			return len(categoryReports) + 1, 5 // rows, columns
+			return len(categoryReports) + 1, 5 // rows + 1(one extra for header), columns
 		},
 		func() fyne.CanvasObject {
 			return widget.NewLabel("")
@@ -360,7 +361,7 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 
 			// Header row
 			if id.Row == 0 {
-				headers := []string{"No.", "Category", "Amount", "Count", "Percentage"}
+				headers := []string{"No.", "Category", "Amount", "Count", "Percentage + Visual Bar"}
 				label.SetText(headers[id.Col])
 				label.TextStyle = fyne.TextStyle{Bold: true}
 				return
@@ -378,7 +379,13 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 			case 3:
 				label.SetText(fmt.Sprintf("%d", category.Count))
 			case 4:
-				label.SetText(fmt.Sprintf("%.1f%%", category.Percent))
+				barLength := int(category.Percent / 4) // Scale down
+				if barLength > 25 {
+					barLength = 25
+				}
+				bar := strings.Repeat("█", barLength)
+				label.SetText(fmt.Sprintf("%-5.1f%%   %s", category.Percent, bar))
+
 			}
 		},
 	)
