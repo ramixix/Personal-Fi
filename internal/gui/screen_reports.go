@@ -123,8 +123,7 @@ func (r *ReportsScreen) createReportContent() fyne.CanvasObject {
 	case "category":
 		return r.createCategoryReport()
 	case "comparison":
-		// return r.createComparisonReport()
-		return nil
+		return r.createComparisonReport()
 	case "trends":
 		// return r.createTrendsReport()
 		return nil
@@ -409,4 +408,106 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 		nil,    // right
 		table,  // center -> fills all remaining space
 	)
+}
+
+// --------------------------------------------------------------
+//
+//	creates period Monthly and Yearly Comparision Screen
+//
+// --------------------------------------------------------------
+func (r *ReportsScreen) createComparisonReport() fyne.CanvasObject {
+	title := widget.NewLabelWithStyle("Period Comparison", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	comparisonSelect := widget.NewSelect([]string{"Year-over-Year", "Month-over-Month"}, nil)
+	comparisonSelect.SetSelected("Year-over-Year")
+
+	currentYear := time.Now().Year()
+	var decadeList []string
+	for year := currentYear; year >= currentYear-10; year-- {
+		decadeList = append(decadeList, fmt.Sprintf("%d", year))
+	}
+	firstYearSelect := widget.NewSelect(decadeList, nil)
+	firstYearSelect.SetSelected(fmt.Sprintf("%d", currentYear))
+	secondYearSelect := widget.NewSelect(decadeList, nil)
+	secondYearSelect.SetSelected(fmt.Sprintf("%d", currentYear-1))
+
+	yearGrid := container.NewGridWithColumns(2, firstYearSelect, secondYearSelect)
+
+	months := []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+	firstMonthSelect := widget.NewSelect(months, nil)
+	firstMonthSelect.SetSelected(time.Now().Month().String())
+	secondMonthSelect := widget.NewSelect(months, nil)
+	secondMonthSelect.SetSelected(time.Now().AddDate(0, -1, 0).Month().String())
+
+	monthGrid := container.NewGridWithColumns(2, firstMonthSelect, secondMonthSelect)
+
+	// since fisrt the comparison selected Year-Over-Year
+	firstMonthSelect.Disable()
+	secondMonthSelect.Disable()
+
+	comparisonContent := container.NewVBox()
+	updateComparison := func() {
+		comparisonContent.RemoveAll()
+
+		firstYear, _ := strconv.Atoi(firstYearSelect.Selected)
+		secondYear, _ := strconv.Atoi(secondYearSelect.Selected)
+
+		var report models.ComparisonReport
+		if comparisonSelect.Selected == "Year-over-Year" {
+			report = core.GetYearOverYearComparison(firstYear, secondYear)
+			comparisonContent.Add(widget.NewLabelWithStyle(fmt.Sprintf("Comparison: %d vs %d", firstYear, secondYear), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+		} else {
+			firstMonth := time.Month(firstMonthSelect.SelectedIndex() + 1)
+			secondMonth := time.Month(secondMonthSelect.SelectedIndex() + 1)
+			report = core.GetMonthOverMonthComparison(firstYear, firstMonth, secondYear, secondMonth)
+			comparisonContent.Add(widget.NewLabelWithStyle(fmt.Sprintf("Comparison: %s of %d vs %s of %d", firstMonth.String(), firstYear, secondMonth.String(), secondYear), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+		}
+
+		grid := container.NewGridWithColumns(4,
+			widget.NewLabel("Category"),
+			widget.NewLabel(fmt.Sprint(firstYear)),
+			widget.NewLabel(fmt.Sprint(secondYear)),
+			widget.NewLabel("Change"),
+
+			widget.NewLabel("Income"),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period1Income)),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period2Income)),
+			widget.NewLabel(fmt.Sprintf("$%.2f (%+.1f%%)", report.IncomeChange, report.IncomePercent)),
+
+			widget.NewLabel("Expenses"),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period1Expenses)),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period2Expenses)),
+			widget.NewLabel(fmt.Sprintf("$%.2f (%+.1f%%)", report.ExpenseChange, report.ExpensePercent)),
+
+			widget.NewLabel("Net"),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period1Income-report.Period1Expenses)),
+			widget.NewLabel(fmt.Sprintf("$%.2f", report.Period2Income-report.Period2Expenses)),
+			widget.NewLabel(fmt.Sprintf("$%.2f", (report.Period2Income-report.Period2Expenses)-(report.Period1Income-report.Period1Expenses))),
+		)
+
+		comparisonContent.Add(grid)
+		comparisonContent.Refresh()
+	}
+
+	comparisonSelect.OnChanged = func(value string) {
+		if value == "Year-over-Year" {
+			firstMonthSelect.Disable()
+			secondMonthSelect.Disable()
+		} else {
+			firstMonthSelect.Enable()
+			secondMonthSelect.Enable()
+		}
+
+		updateComparison()
+	}
+
+	firstYearSelect.OnChanged = func(string) { updateComparison() }
+	secondYearSelect.OnChanged = func(string) { updateComparison() }
+	firstMonthSelect.OnChanged = func(string) { updateComparison() }
+	secondMonthSelect.OnChanged = func(string) { updateComparison() }
+
+	updateComparison()
+
+	content := container.NewVBox(title, comparisonSelect, yearGrid, monthGrid, comparisonContent)
+	return content
 }
