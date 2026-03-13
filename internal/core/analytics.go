@@ -325,7 +325,7 @@ func GetCategoryTrend(category string, months int) string {
 	}
 
 	if len(monthlySpending) < 2 {
-		return "insufficient data"
+		return "income category or insufficient data"
 	}
 
 	// Convert to sorted slice

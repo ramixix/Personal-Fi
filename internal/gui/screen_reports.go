@@ -125,8 +125,8 @@ func (r *ReportsScreen) createReportContent() fyne.CanvasObject {
 	case "comparison":
 		return r.createComparisonReport()
 	case "trends":
-		// return r.createTrendsReport()
-		return nil
+		return r.createTrendsReport()
+		// return nil
 	default:
 		return r.createOverviewReport()
 	}
@@ -509,5 +509,73 @@ func (r *ReportsScreen) createComparisonReport() fyne.CanvasObject {
 	updateComparison()
 
 	content := container.NewVBox(title, comparisonSelect, yearGrid, monthGrid, comparisonContent)
+	return content
+}
+
+// ----------------------------------------------
+//
+//	Screen to show spending trends analysis
+//
+// ----------------------------------------------
+func (r *ReportsScreen) createTrendsReport() fyne.CanvasObject {
+	title := widget.NewLabelWithStyle("Spending Trends (Last 6 Months)", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	categories := core.GetCategories()
+
+	if len(categories) == 0 {
+		return container.NewVBox(title, widget.NewLabel("No data available for trend analysis"))
+	}
+
+	trendGrid := container.NewGridWithColumns(3,
+		widget.NewLabelWithStyle("Category", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Trend", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Indicator", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+
+	for _, cat := range categories {
+		trend := core.GetCategoryTrend(cat, 6)
+		indicator := "?"
+		switch trend {
+		case "increasing":
+			indicator = "📈 ↑"
+		case "decreasing":
+			indicator = "📉 ↓"
+		case "stable":
+			indicator = "➡️ →"
+		}
+		trendGrid.Add(widget.NewLabel(cat))
+		trendGrid.Add(widget.NewLabel(trend))
+		trendGrid.Add(widget.NewLabel(indicator))
+	}
+
+	reports := core.GetMonthlyReports()
+	monthsCount := 6
+	if len(reports) > 6 {
+		monthsCount = 6
+	} else {
+		monthsCount = len(reports)
+	}
+
+	monthlySection := widget.NewLabelWithStyle(fmt.Sprintf("Last %d Months Overview", monthsCount), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	monthlyOverviewGrid := container.NewGridWithColumns(5,
+		widget.NewLabelWithStyle("Date", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Total Transaction Num", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Income", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Expenses", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Net", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+
+	for i := len(reports) - monthsCount; i < len(reports); i++ {
+		r := reports[i]
+		monthlyOverviewGrid.Add(widget.NewLabel(fmt.Sprintf("%s %d", r.Month.String()[:3], r.Year)))
+		monthlyOverviewGrid.Add(widget.NewLabel(fmt.Sprintf("%d", r.TxCount)))
+		monthlyOverviewGrid.Add(widget.NewLabel(fmt.Sprintf("%.2f", r.Income)))
+		monthlyOverviewGrid.Add(widget.NewLabel(fmt.Sprintf("%.2f", r.Expenses)))
+		monthlyOverviewGrid.Add(widget.NewLabel(fmt.Sprintf("%.2f", r.Net)))
+	}
+
+	content := container.NewVBox(title, trendGrid, widget.NewSeparator(), widget.NewSeparator(), monthlySection, monthlyOverviewGrid)
+
 	return content
 }
