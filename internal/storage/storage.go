@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+// Application Version
+const AppVersion = "0.1.0"
+
 // file to save necessary infromation
 const dataFile = "financial_data.json"
 
