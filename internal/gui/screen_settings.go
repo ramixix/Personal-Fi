@@ -18,11 +18,21 @@ func NewSettingsScreen(app *GuiApp) *SettingsScreen {
 }
 
 func (s *SettingsScreen) Render() fyne.CanvasObject {
-	header := s.createHeader()
-	// App Info Section
-	appInfoSection := s.createAppInfoSection()
+	headerPlusAppInfo := s.HeaderAndAppInfoSection()
 
-	content := container.NewVBox(header, widget.NewSeparator(), appInfoSection)
+	// Data Management Section
+	dataManagementSection := s.createDataManagementSection()
+
+	// Statistics Section
+	statisticsSection := s.createStatisticsSection()
+
+	content := container.NewVBox(
+		headerPlusAppInfo,
+		widget.NewSeparator(),
+		dataManagementSection,
+		widget.NewSeparator(),
+		statisticsSection,
+	)
 	return container.NewScroll(content)
 }
 
@@ -31,22 +41,95 @@ func (s *SettingsScreen) Render() fyne.CanvasObject {
 //	Simple header for setting screen
 //
 // -------------------------------------
-func (s *SettingsScreen) createHeader() fyne.CanvasObject {
+func (s *SettingsScreen) HeaderAndAppInfoSection() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("⚙️ Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	subtitle := widget.NewLabel("Manage your application preferences and data")
 
-	return container.NewVBox(title, subtitle)
-}
-
-// ------------------------------------------------------------------------
-//
-//	Section to show information about current version of application
-//
-// ------------------------------------------------------------------------
-// createAppInfoSection creates app information section
-func (s *SettingsScreen) createAppInfoSection() fyne.CanvasObject {
+	// app version info
 	version := widget.NewLabelWithStyle(fmt.Sprintf("Version: %s", storage.AppVersion), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	appInfo := widget.NewCard("Application Information", "Financial Tracker: A personal finance management application", version)
 
-	return container.NewVBox(appInfo)
+	return container.NewVBox(title, subtitle, widget.NewSeparator(), appInfo)
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+//
+//	Section for data management functions such as creating/restoring backup, exporting to csv and reloading data
+//
+// ----------------------------------------------------------------------------------------------------------------
+func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
+	sectionTitle := widget.NewLabelWithStyle("💾 Data Management", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	// Backup button
+	backupBtn := widget.NewButton("📦 Create Backup", func() {
+		// s.createBackup()
+	})
+	backupBtn.Importance = widget.HighImportance
+	backupInfo := widget.NewLabel("Create a timestamped backup of your data: ")
+	backupGrid := container.NewGridWithColumns(2, backupInfo, backupBtn)
+
+	// Restore button
+	restoreBtn := widget.NewButton("📥 Restore from Backup", func() {
+		// s.restoreFromBackup()
+	})
+	restoreInfo := widget.NewLabel("Restore data from a previous backup file: ")
+	restoreGrid := container.NewGridWithColumns(2, restoreInfo, restoreBtn)
+
+	// Export all data
+	exportBtn := widget.NewButton("📤 Export All Data (CSV)", func() {
+		// s.exportAllData()
+	})
+	exportInfo := widget.NewLabel("Export transactions, accounts, and goals to CSV files: ")
+	exportGrid := container.NewGridWithColumns(2, exportInfo, exportBtn)
+
+	// Refresh data
+	refreshBtn := widget.NewButton("🔄 Reload Data", func() {
+		// s.reloadData()
+	})
+	refreshInfo := widget.NewLabel("Reload data from disk (useful if file was modified externally): ")
+	refreshGrid := container.NewGridWithColumns(2, refreshInfo, refreshBtn)
+
+	content := container.NewVBox(
+		sectionTitle,
+		backupGrid,
+		restoreGrid,
+		exportGrid,
+		refreshGrid,
+	)
+	return content
+}
+
+// -----------------------------------------------------------------------------------------------------------
+//
+//	Section for showing breif statistic about the data stored so user can have an idea of what they have
+//
+// -----------------------------------------------------------------------------------------------------------
+func (s *SettingsScreen) createStatisticsSection() fyne.CanvasObject {
+	sectionTitle := widget.NewLabelWithStyle("📊 Data Statistics", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	transactionsNum := len(storage.Transactions)
+	accountsNum := len(storage.Accounts)
+	accountsTransactionNum := len(storage.AccountTransactions)
+	goalsNum := len(storage.Goals)
+	goalContributionNum := len(storage.GoalContributions)
+
+	totalRecords := transactionsNum + accountsNum + accountsTransactionNum + goalsNum + goalContributionNum
+
+	statsGrid := container.NewGridWithColumns(6,
+		widget.NewLabel("Total Records"),
+		widget.NewLabel("Transactions"),
+		widget.NewLabel("Accounts"),
+		widget.NewLabel("Goals"),
+		widget.NewLabel("Account  Transactions"),
+		widget.NewLabel("Goal Contributions"),
+
+		widget.NewLabel(fmt.Sprintf("%d", totalRecords)),
+		widget.NewLabel(fmt.Sprintf("%d", transactionsNum)),
+		widget.NewLabel(fmt.Sprintf("%d", accountsNum)),
+		widget.NewLabel(fmt.Sprintf("%d", goalsNum)),
+		widget.NewLabel(fmt.Sprintf("%d", accountsTransactionNum)),
+		widget.NewLabel(fmt.Sprintf("%d", goalContributionNum)),
+	)
+
+	return container.NewVBox(sectionTitle, statsGrid)
 }
