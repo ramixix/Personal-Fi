@@ -35,6 +35,7 @@ func Run() {
 	gui.accountsScreen = NewAccountsScreen(&gui)
 	gui.goalsScreen = NewGoalsScreen(&gui)
 	gui.reportsScreen = NewReportsScreen(&gui)
+	gui.settingsScreen = NewSettingsScreen(&gui)
 
 	gui.mainContent = container.NewStack()
 

@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -26,12 +27,17 @@ func (s *SettingsScreen) Render() fyne.CanvasObject {
 	// Statistics Section
 	statisticsSection := s.createStatisticsSection()
 
+	// diplay settings (theme, currancy and date format)
+	displaySettingsSection := s.createDisplaySettingsSection()
+
 	content := container.NewVBox(
 		headerPlusAppInfo,
 		widget.NewSeparator(),
 		dataManagementSection,
 		widget.NewSeparator(),
 		statisticsSection,
+		widget.NewSeparator(),
+		displaySettingsSection,
 	)
 	return container.NewScroll(content)
 }
@@ -132,4 +138,45 @@ func (s *SettingsScreen) createStatisticsSection() fyne.CanvasObject {
 	)
 
 	return container.NewVBox(sectionTitle, statsGrid)
+}
+
+// creates display preferences
+func (s *SettingsScreen) createDisplaySettingsSection() fyne.CanvasObject {
+	sectionTitle := widget.NewLabelWithStyle("🎨 Display Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	// Theme selector (for future implementation)
+	themeLabel := widget.NewLabel("Theme:")
+	themeSelect := widget.NewSelect([]string{"Default", "Light", "Dark"}, nil)
+	themeSelect.SetSelected("Default")
+	themeSelect.OnChanged = func(value string) {
+		dialog.ShowInformation("Theme", "Theme switching will be implemented in a future version", s.guiApp.GuiWindow)
+	}
+
+	// Currency (for future implementation)
+	currencyLabel := widget.NewLabel("Currency:")
+	currencySelect := widget.NewSelect([]string{"USD ($)", "EUR (€)", "GBP (£)", "JPY (¥)"}, nil)
+	currencySelect.SetSelected("USD ($)")
+	currencySelect.OnChanged = func(value string) {
+		dialog.ShowInformation("Currency", "Currency switching will be implemented in a future version", s.guiApp.GuiWindow)
+	}
+
+	// Date format (for future implementation)
+	dateFormatLabel := widget.NewLabel("Date Format:")
+	dateFormatSelect := widget.NewSelect([]string{"MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"}, nil)
+	dateFormatSelect.SetSelected("YYYY-MM-DD")
+	dateFormatSelect.OnChanged = func(value string) {
+		dialog.ShowInformation("Date Format", "Date format switching will be implemented in a future version", s.guiApp.GuiWindow)
+	}
+
+	content := container.NewVBox(
+		sectionTitle,
+		themeLabel,
+		themeSelect,
+		currencyLabel,
+		currencySelect,
+		dateFormatLabel,
+		dateFormatSelect,
+		widget.NewLabel("💡 Note: These settings will be fully functional in a future update"),
+	)
+	return widget.NewCard("", "", content)
 }
