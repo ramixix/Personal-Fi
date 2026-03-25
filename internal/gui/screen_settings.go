@@ -30,6 +30,9 @@ func (s *SettingsScreen) Render() fyne.CanvasObject {
 	// diplay settings (theme, currancy and date format)
 	displaySettingsSection := s.createDisplaySettingsSection()
 
+	//display danger zone (a zone where users can delete some parts or information / whole file)
+	dangerZoneSection := s.createDangerZoneSection()
+
 	content := container.NewVBox(
 		headerPlusAppInfo,
 		widget.NewSeparator(),
@@ -38,6 +41,8 @@ func (s *SettingsScreen) Render() fyne.CanvasObject {
 		statisticsSection,
 		widget.NewSeparator(),
 		displaySettingsSection,
+		widget.NewSeparator(),
+		dangerZoneSection,
 	)
 	return container.NewScroll(content)
 }
@@ -140,7 +145,11 @@ func (s *SettingsScreen) createStatisticsSection() fyne.CanvasObject {
 	return container.NewVBox(sectionTitle, statsGrid)
 }
 
-// creates display preferences
+// -------------------------------------------------------------------------------------------
+//
+// creates display preferences, where users can change theme, currancy and date format
+//
+// -------------------------------------------------------------------------------------------
 func (s *SettingsScreen) createDisplaySettingsSection() fyne.CanvasObject {
 	sectionTitle := widget.NewLabelWithStyle("🎨 Display Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
@@ -178,5 +187,48 @@ func (s *SettingsScreen) createDisplaySettingsSection() fyne.CanvasObject {
 		dateFormatSelect,
 		widget.NewLabel("💡 Note: These settings will be fully functional in a future update"),
 	)
+	return widget.NewCard("", "", content)
+}
+
+// -----------------------------------------------------------------------------------------------
+//
+// creates danger zone, where users can remove a part/whole of information or delete whole file
+//
+// -----------------------------------------------------------------------------------------------
+func (s *SettingsScreen) createDangerZoneSection() fyne.CanvasObject {
+	sectionTitle := widget.NewLabelWithStyle("⚠️ Danger Zone", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	warningLabel := widget.NewLabel("⚠️ Warning: These actions cannot be undone!")
+	warningLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// Clear all transactions
+	clearTransactionsBtn := widget.NewButton("🗑️ Clear All Transactions", func() {
+		// s.confirmClearTransactions()
+	})
+	clearTransactionsBtn.Importance = widget.DangerImportance
+
+	// Clear all data
+	clearAllBtn := widget.NewButton("💣 Clear ALL Data", func() {
+		// s.confirmClearAllData()
+	})
+	clearAllBtn.Importance = widget.DangerImportance
+
+	// Delete data file
+	deleteFileBtn := widget.NewButton("🔥 Delete Data File", func() {
+		// s.confirmDeleteDataFile()
+	})
+	deleteFileBtn.Importance = widget.DangerImportance
+
+	content := container.NewVBox(
+		sectionTitle,
+		warningLabel,
+		widget.NewLabel("Clear all transactions (keeps accounts and goals)"),
+		clearTransactionsBtn,
+		widget.NewLabel("Clear all data (transactions, accounts, goals, everything)"),
+		clearAllBtn,
+		widget.NewLabel("Delete the data file from disk"),
+		deleteFileBtn,
+	)
+
 	return widget.NewCard("", "", content)
 }
