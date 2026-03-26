@@ -3,6 +3,8 @@ package gui
 import (
 	"financial_tracker/internal/storage"
 	"fmt"
+	"os"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -73,7 +75,7 @@ func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
 
 	// Backup button
 	backupBtn := widget.NewButton("📦 Create Backup", func() {
-		// s.createBackup()
+		s.createBackup()
 	})
 	backupBtn.Importance = widget.HighImportance
 	backupInfo := widget.NewLabel("Create a timestamped backup of your data: ")
@@ -232,3 +234,46 @@ func (s *SettingsScreen) createDangerZoneSection() fyne.CanvasObject {
 
 	return widget.NewCard("", "", content)
 }
+
+// ------------------------------------
+// create a timestamped backup
+// ------------------------------------
+func (s *SettingsScreen) createBackup() {
+	timeStamp := time.Now().Format("2006-01-02_15-04-05")
+	backupFile := fmt.Sprintf("financial_data_backup_%s.json", timeStamp)
+
+	data, err := os.ReadFile(storage.DataFile)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to read data file: %v", err), s.guiApp.GuiWindow)
+	}
+
+	err = os.WriteFile(backupFile, data, 0644)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to create backup: %v", err), s.guiApp.GuiWindow)
+	}
+
+	dialog.ShowInformation("Backup Created",
+		fmt.Sprintf("Backup created successfully!\n\nFile: %s\nSize: %.2f KB",
+			backupFile, float64(len(data))/1024),
+		s.guiApp.GuiWindow)
+}
+
+// -----------------------------------------
+// restore data from a backup file
+// -----------------------------------------
+func (s *SettingsScreen) restoreFromBackup() {
+	// For now, show instructions
+	// In a full implementation, you'd use a file picker
+	dialog.ShowInformation("Restore from Backup",
+		"To restore from a backup:\n\n"+
+			"1. Close the application\n"+
+			"2. Rename your backup file to 'financial_data.json'\n"+
+			"3. Replace the current data file\n"+
+			"4. Restart the application\n\n"+
+			"A file picker will be added in a future version.",
+		s.guiApp.GuiWindow)
+}
+
+//--------------------------------------------------------------------------------------------------------
+// exporting all data to CSV files (Transactions, Acounts, Goals each with their dedicated csv files)
+//--------------------------------------------------------------------------------------------------------

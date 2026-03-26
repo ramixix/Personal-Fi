@@ -11,7 +11,7 @@ import (
 const AppVersion = "0.1.0"
 
 // file to save necessary infromation
-const dataFile = "financial_data.json"
+const DataFile = "financial_data.json"
 
 // Global storage - in memory
 var Transactions []models.Transaction
@@ -50,7 +50,7 @@ func SaveData() error {
 		return err
 	}
 
-	err = os.WriteFile(dataFile, dataJsonFormat, 0664)
+	err = os.WriteFile(DataFile, dataJsonFormat, 0664)
 	if err != nil {
 		fmt.Println("[Warning] Could not Write to file to save data in saveData function!")
 		return err
@@ -60,12 +60,12 @@ func SaveData() error {
 
 // Load all data from JSON file
 func LoadData() error {
-	if _, err := os.Stat(dataFile); os.IsNotExist(err) {
+	if _, err := os.Stat(DataFile); os.IsNotExist(err) {
 		fmt.Println("[Info] DataFile to Load Information From Does Not Exists!")
 		return nil
 	}
 
-	jsonData, err := os.ReadFile(dataFile)
+	jsonData, err := os.ReadFile(DataFile)
 	if err != nil {
 		return err
 	}
