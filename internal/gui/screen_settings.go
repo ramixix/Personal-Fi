@@ -90,7 +90,7 @@ func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
 
 	// Export all data
 	exportBtn := widget.NewButton("📤 Export All Data (CSV)", func() {
-		// s.exportAllData()
+		s.exportAllData()
 	})
 	exportInfo := widget.NewLabel("Export transactions, accounts, and goals to CSV files: ")
 	exportGrid := container.NewGridWithColumns(2, exportInfo, exportBtn)
@@ -245,11 +245,13 @@ func (s *SettingsScreen) createBackup() {
 	data, err := os.ReadFile(storage.DataFile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("failed to read data file: %v", err), s.guiApp.GuiWindow)
+		return
 	}
 
 	err = os.WriteFile(backupFile, data, 0644)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("failed to create backup: %v", err), s.guiApp.GuiWindow)
+		return
 	}
 
 	dialog.ShowInformation("Backup Created",
@@ -274,6 +276,93 @@ func (s *SettingsScreen) restoreFromBackup() {
 		s.guiApp.GuiWindow)
 }
 
-//--------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------
 // exporting all data to CSV files (Transactions, Acounts, Goals each with their dedicated csv files)
-//--------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------
+func (s *SettingsScreen) exportAllData() {
+	transactionsCSVFile := "transactions_export.csv"
+	accountsCSVFile := "accounts_export.csv"
+	goalsCSVFile := "goals_export.csv"
+
+	// Export transactions
+	err := s.exportTransactionsCSV(transactionsCSVFile)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to export transactions: %v", err), s.guiApp.GuiWindow)
+		return
+	}
+
+	// Export accounts
+	err = s.exportAccountsCSV(accountsCSVFile)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to export accounts: %v", err), s.guiApp.GuiWindow)
+		return
+	}
+
+	// Export goals
+	err = s.exportGoalsCSV(goalsCSVFile)
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to export goals: %v", err), s.guiApp.GuiWindow)
+		return
+	}
+
+	successMessage := fmt.Sprintf("All data exported successfully!\n\nFiles created:\n- %s\n- %s\n- %s", transactionsCSVFile, accountsCSVFile, goalsCSVFile)
+	dialog.ShowInformation("Export Complete", successMessage, s.guiApp.GuiWindow)
+}
+
+// ---------------------------------------------------------------
+// Helper funcitons to export Transactions, Accounts, and Goals
+// ---------------------------------------------------------------
+func (s *SettingsScreen) exportTransactionsCSV(exportedFileName string) error {
+	file, err := os.Create(exportedFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Header
+	file.WriteString("ID,Date,Type,Amount,Category,Description")
+	// Write data
+	for _, transac := range storage.Transactions {
+		file.WriteString(fmt.Sprintf("%d,%s,%s,%.2f,%s,%s\n", transac.ID, transac.Date.Format("2006-01-02"), transac.Type, transac.Amount, transac.Category, transac.Description))
+	}
+	return nil
+}
+
+func (s *SettingsScreen) exportAccountsCSV(exportedFileName string) error {
+	file, err := os.Create(exportedFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write header
+	file.WriteString("ID,Name,Balance,Created\n")
+	// Write data
+	for _, acc := range storage.Accounts {
+		file.WriteString(fmt.Sprintf("%d,%s,%.2f,%s\n", acc.ID, acc.Name, acc.Balance, acc.Created.Format("2006-01-02")))
+	}
+	return nil
+}
+
+func (s *SettingsScreen) exportGoalsCSV(exportedFileName string) error {
+	file, err := os.Create(exportedFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write header
+	file.WriteString("ID,Name,TargetAmount,CurrentAmount,Status,Created\n")
+	// Write data
+	for _, goal := range storage.Goals {
+		file.WriteString(fmt.Sprintf("%d,%s,%.2f,%.2f,%s,%s\n",
+			goal.ID,
+			goal.Name,
+			goal.TargetAmount,
+			goal.CurrentAmount,
+			goal.Status,
+			goal.Created.Format("2006-01-02"),
+		))
+	}
+	return nil
+}
