@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"fmt"
 	"os"
@@ -83,7 +84,7 @@ func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
 
 	// Restore button
 	restoreBtn := widget.NewButton("📥 Restore from Backup", func() {
-		// s.restoreFromBackup()
+		s.restoreFromBackup()
 	})
 	restoreInfo := widget.NewLabel("Restore data from a previous backup file: ")
 	restoreGrid := container.NewGridWithColumns(2, restoreInfo, restoreBtn)
@@ -97,7 +98,7 @@ func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
 
 	// Refresh data
 	refreshBtn := widget.NewButton("🔄 Reload Data", func() {
-		// s.reloadData()
+		s.reloadData()
 	})
 	refreshInfo := widget.NewLabel("Reload data from disk (useful if file was modified externally): ")
 	refreshGrid := container.NewGridWithColumns(2, refreshInfo, refreshBtn)
@@ -205,19 +206,19 @@ func (s *SettingsScreen) createDangerZoneSection() fyne.CanvasObject {
 
 	// Clear all transactions
 	clearTransactionsBtn := widget.NewButton("🗑️ Clear All Transactions", func() {
-		// s.confirmClearTransactions()
+		s.confirmClearTransactions()
 	})
 	clearTransactionsBtn.Importance = widget.DangerImportance
 
 	// Clear all data
 	clearAllBtn := widget.NewButton("💣 Clear ALL Data", func() {
-		// s.confirmClearAllData()
+		s.confirmClearAllData()
 	})
 	clearAllBtn.Importance = widget.DangerImportance
 
 	// Delete data file
 	deleteFileBtn := widget.NewButton("🔥 Delete Data File", func() {
-		// s.confirmDeleteDataFile()
+		s.confirmDeleteDataFile()
 	})
 	deleteFileBtn.Importance = widget.DangerImportance
 
@@ -365,4 +366,123 @@ func (s *SettingsScreen) exportGoalsCSV(exportedFileName string) error {
 		))
 	}
 	return nil
+}
+
+// -----------------------------
+// Reloading data from file
+// -----------------------------
+func (s *SettingsScreen) reloadData() {
+	err := storage.LoadData()
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("failed to reload data: %v", err), s.guiApp.GuiWindow)
+		return
+	}
+
+	dialog.ShowInformation("Data Reloaded", "Data reloaded successfully from disk!", s.guiApp.GuiWindow)
+	s.guiApp.ShowDashboardScreen()
+}
+
+// ----------------------------------------------------------
+// Ask for confirmation before clearing transactions
+// ----------------------------------------------------------
+func (s *SettingsScreen) confirmClearTransactions() {
+	dialog.ShowConfirm(
+		"Clear All Transactions",
+		fmt.Sprintf("Are you sure you want to delete ALL %d transactions?\n\nThis action cannot be undone!", len(storage.Transactions)),
+		func(confirmed bool) {
+			if confirmed {
+				storage.Transactions = []models.Transaction{}
+				storage.NextTransactionID = 1
+				storage.SaveData()
+				dialog.ShowInformation("Cleared", "All transactions have been deleted", s.guiApp.GuiWindow)
+				s.guiApp.ShowSettingsScreen()
+			}
+		},
+		s.guiApp.GuiWindow)
+}
+
+// ---------------------------------------------------
+// Ask for confirmation before clearing all data
+// ---------------------------------------------------
+func (s *SettingsScreen) confirmClearAllData() {
+	confirmationMessage := fmt.Sprintf(
+		"WARNING: You are about to delete ALL data!\n\n"+
+			"This includes:\n"+
+			"- %d Transactions\n"+
+			"- %d Accounts\n"+
+			"- %d Goals\n"+
+			"- All contribution history\n\n"+
+			"This action CANNOT be undone!\n\n"+
+			"Are you absolutely sure?",
+		len(storage.Transactions),
+		len(storage.Accounts),
+		len(storage.Goals),
+	)
+
+	dialog.ShowConfirm(
+		"⚠️ Clear ALL Data",
+		confirmationMessage,
+		func(confirmed bool) {
+			if confirmed {
+				// Double confirmation
+				dialog.ShowConfirm(
+					"Final Confirmation",
+					"This is your last chance!\n\nDelete all data permanently?",
+					func(reallyConfirmed bool) {
+						if reallyConfirmed {
+							s.clearAllData()
+						}
+					},
+					s.guiApp.GuiWindow,
+				)
+			}
+		},
+		s.guiApp.GuiWindow,
+	)
+}
+
+// --------------------------------
+// clear all application data
+// --------------------------------
+func (s *SettingsScreen) clearAllData() {
+	storage.Transactions = []models.Transaction{}
+	storage.Accounts = []models.Account{}
+	storage.Goals = []models.Goal{}
+	storage.AccountTransactions = []models.AccountTransaction{}
+	storage.GoalContributions = []models.GoalContribution{}
+
+	storage.NextTransactionID = 1
+	storage.NextAccountID = 1
+	storage.NextGoalID = 1
+	storage.NextAccountTransactionID = 1
+	storage.NextGoalContributionID = 1
+
+	storage.SaveData()
+
+	dialog.ShowInformation("All Data Cleared", "All application data has been permanently deleted", s.guiApp.GuiWindow)
+	s.guiApp.ShowDashboardScreen()
+}
+
+// -------------------------------------------------------
+// Ask for confirmation before deleting data file
+// -------------------------------------------------------
+func (s *SettingsScreen) confirmDeleteDataFile() {
+	dialog.ShowConfirm(
+		"Delete Data File",
+		"This will delete the data file from disk.\nThe application will start fresh next time.\n\nContinue?",
+		func(confirmed bool) {
+			if confirmed {
+				err := os.Remove(storage.DataFile)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("failed to delete file: %v", err), s.guiApp.GuiWindow)
+					return
+				}
+
+				dialog.ShowInformation("File Deleted", "Data file deleted successfully.\nThe application will restart with empty data.", s.guiApp.GuiWindow)
+				// Clear in-memory data too
+				s.clearAllData()
+			}
+		},
+		s.guiApp.GuiWindow,
+	)
 }
