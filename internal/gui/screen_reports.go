@@ -126,7 +126,6 @@ func (r *ReportsScreen) createReportContent() fyne.CanvasObject {
 		return r.createComparisonReport()
 	case "trends":
 		return r.createTrendsReport()
-		// return nil
 	default:
 		return r.createOverviewReport()
 	}
@@ -190,14 +189,27 @@ func (r *ReportsScreen) createOverviewReport() fyne.CanvasObject {
 	transacCardGrid := container.NewGridWithColumns(3, transacCard1, transacCard2, transacCard3)
 
 	// Top categories
-	var incomeCategory models.CategoryReport = core.GetCategoryBreakdown("income")[0]
-	var expenseCategory models.CategoryReport = core.GetCategoryBreakdown("expense")[0]
 	topCategoriesSection := widget.NewLabelWithStyle("Top Income & Expenses Categories", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	var incomeCategories []models.CategoryReport = core.GetCategoryBreakdown("income")
+	var expenseCategories []models.CategoryReport = core.GetCategoryBreakdown("expense")
 
-	incomeCardMessage := fmt.Sprintf("Category Name: %s", incomeCategory.Category)
-	expenseCardMessage := fmt.Sprintf("Category Name: %s", expenseCategory.Category)
-	incomeCard := widget.NewCard("", incomeCardMessage, widget.NewLabel(fmt.Sprintf("%.2f (Count: %d | %.2f Total Percent of Incomes)", incomeCategory.Amount, incomeCategory.Count, incomeCategory.Percent)))
-	expenseCard := widget.NewCard("", expenseCardMessage, widget.NewLabel(fmt.Sprintf("%2.f (Count: %d | %.2f Total Percent of Expense)", expenseCategory.Amount, expenseCategory.Count, expenseCategory.Percent)))
+	var incomeCard, expenseCard *widget.Card
+	if len(incomeCategories) > 0 {
+		topCat := incomeCategories[0]
+		incomeCardMessage := fmt.Sprintf("Category Name: %s", topCat.Category)
+		incomeCard = widget.NewCard("", incomeCardMessage, widget.NewLabel(fmt.Sprintf("%.2f (Count: %d | %.2f Total Percent of Incomes)", topCat.Amount, topCat.Count, topCat.Percent)))
+
+	} else {
+		incomeCard = widget.NewCard("", "No income data", widget.NewLabel("No transactions available"))
+	}
+
+	if len(expenseCategories) > 0 {
+		topCat := expenseCategories[0]
+		expenseCardMessage := fmt.Sprintf("Category Name: %s", topCat.Category)
+		expenseCard = widget.NewCard("", expenseCardMessage, widget.NewLabel(fmt.Sprintf("%2.f (Count: %d | %.2f Total Percent of Expense)", topCat.Amount, topCat.Count, topCat.Percent)))
+	} else {
+		expenseCard = widget.NewCard("", "No expense data", widget.NewLabel("No transactions available"))
+	}
 
 	categoryCardGrid := container.NewGridWithColumns(2, incomeCard, expenseCard)
 
@@ -337,15 +349,6 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 
 		categoryReports = core.GetCategoryBreakdown(transactionType)
 		table.Refresh()
-
-	}
-
-	if len(categoryReports) == 0 {
-		return container.NewVBox(
-			sectionTitle,
-			categoryTypeSelection,
-			widget.NewLabel("No data available"),
-		)
 	}
 
 	table = widget.NewTable(
@@ -394,6 +397,14 @@ func (r *ReportsScreen) createCategoryReport() fyne.CanvasObject {
 	table.SetColumnWidth(2, 120)
 	table.SetColumnWidth(3, 100)
 	table.SetColumnWidth(4, 120)
+
+	if len(categoryReports) == 0 {
+		return container.NewVBox(
+			sectionTitle,
+			categoryTypeSelection,
+			widget.NewLabel("No data available"),
+		)
+	}
 
 	header := container.NewVBox(
 		sectionTitle,
