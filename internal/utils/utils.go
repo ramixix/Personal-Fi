@@ -62,3 +62,66 @@ func GetIntInput(reader *bufio.Reader, prompt string) (int, error) {
 	input, _ := reader.ReadString('\n')
 	return strconv.Atoi(strings.TrimSpace(input))
 }
+
+// prompts for and validates currency code
+func GetValidCurrency(reader bufio.Reader, defaultCurrency string) string {
+	fmt.Printf("Default Currency: %s", defaultCurrency)
+	input, _ := reader.ReadString('\n')
+	currency := strings.ToUpper(strings.TrimSpace(input))
+	if currency == "" {
+		return defaultCurrency
+	}
+	if len(currency) != 3 {
+		fmt.Println("Invalid currency code. Using default.")
+		return defaultCurrency
+	}
+	return currency
+}
+
+// Common currency codes
+var CommonCurrencies = []string{
+	"USD", "EUR", "GBP", "JPY", "CNY", "AUD", "CAD", "CHF", "HKD", "SGD",
+	"SEK", "KRW", "NOK", "NZD", "INR", "MXN", "ZAR", "BRL", "TRY", "RUB",
+}
+
+// checks if currency code is in common currencies list (CommonCurrencies)
+func IsValidCurrency(currencyCode string) bool {
+	for _, code := range CommonCurrencies {
+		if code == strings.ToUpper(currencyCode) {
+			return true
+		}
+	}
+	return false
+}
+
+func GetCurrencySymbol(currencyCode string) string {
+	symbols := map[string]string{
+		"USD": "$",
+		"EUR": "€",
+		"GBP": "£",
+		"JPY": "¥",
+		"CNY": "¥",
+		"INR": "₹",
+		"RUB": "₽",
+		"KRW": "₩",
+		"TRY": "₺",
+		"BRL": "R$",
+		"AUD": "A$",
+		"CAD": "C$",
+		"CHF": "Fr",
+		"SEK": "kr",
+		"NOK": "kr",
+	}
+
+	if symbol, ok := symbols[strings.ToUpper(currencyCode)]; ok {
+		return symbol
+	}
+
+	return currencyCode + " "
+}
+
+// FormatCurrency formats amount with currency symbol
+func FormatCurrency(amount float64, currencyCode string) string {
+	symbol := GetCurrencySymbol(currencyCode)
+	return fmt.Sprintf("%s %.2f", symbol, amount)
+}
