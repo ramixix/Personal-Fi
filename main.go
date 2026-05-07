@@ -8,12 +8,22 @@ import (
 	"os"
 )
 
+const dbFile = "financial_tracker.db"
+
 func main() {
-	// Load data first
-	err := storage.LoadData()
+	// Initialize storage (SQLite database)
+	err := storage.InitStorage(dbFile)
 	if err != nil {
-		fmt.Printf("Warning: Could not load data: %v\n", err)
+		fmt.Printf("Fatal: Failed to initialize database: %v\n", err)
+		os.Exit(1)
 	}
+
+	// Ensure database is closed on exit
+	defer func() {
+		if err := storage.CloseStorage(); err != nil {
+			fmt.Printf("Warning: Failed to close database: %v\n", err)
+		}
+	}()
 
 	// Check if GUI flag is provided
 	if len(os.Args) > 1 && os.Args[1] == "--gui" {
