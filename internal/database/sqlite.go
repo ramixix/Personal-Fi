@@ -86,7 +86,7 @@ func (s *Store) migrate() error {
 }
 
 // shutdown the databse
-func (s *Store) close() error {
+func (s *Store) Close() error {
 	s.logger.Info("Closing Database Connection")
 	if s.db != nil {
 		return s.db.Close()
