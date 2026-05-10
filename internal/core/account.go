@@ -3,86 +3,69 @@ package core
 import (
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"time"
 )
 
-func DeleteAccount(accountId int) bool {
-	for index, ac := range storage.Accounts {
-		if ac.ID == accountId {
-			var filteredAccountTransactions []models.AccountTransaction
-			for _, account_transac := range storage.AccountTransactions {
-				if account_transac.AccountID != accountId {
-					// get only transactions that are not part of account id we want to remove
-					filteredAccountTransactions = append(filteredAccountTransactions, account_transac)
-				}
-			}
-			// set new account transaction
-			storage.AccountTransactions = filteredAccountTransactions
-			// remove account
-			storage.Accounts = append(storage.Accounts[:index], storage.Accounts[index+1:]...)
-			return true
-		}
+// DeleteAccount deletes an account
+func DeleteAccount(id string) error {
+	return storage.Store.DeleteAccount(id)
+}
+
+// AddAccount adds account
+func AddAccount(account models.Account) (id string) {
+	id, err := storage.Store.InsertAccount(account)
+	if err != nil {
+		return ""
 	}
-	return false
+	return id
 }
 
-// fucntion to add account to account list
-func AddAccount(account models.Account) {
-	storage.Accounts = append(storage.Accounts, account)
-	storage.NextAccountID++
-}
-
-// Find account by ID
-func FindAccount(id int) *models.Account {
-	for i := range storage.Accounts {
-		if storage.Accounts[i].ID == id {
-			return &storage.Accounts[i]
-		}
+// FindAccount finds an account by ID
+func FindAccount(id string) *models.Account {
+	account, err := storage.Store.GetAccountByID(id)
+	if err != nil {
+		return nil
 	}
-	return nil
+	return account
 }
 
-// Find account index by ID
-func FindAccountIndex(id int) int {
-	for i, account := range storage.Accounts {
-		if account.ID == id {
-			return i
-		}
+func GetAllAccounts() []models.Account {
+	accounts, err := storage.Store.GetAllAccounts()
+	if err != nil {
+		return []models.Account{}
 	}
-	return -1
+	return accounts
 }
 
-// Add money to account and record transaction
-func AddMoneyToAccount(account *models.Account, amount float64, note string) {
-	account.Balance += amount
-
-	newAccountTransaction := models.AccountTransaction{
-		ID:        storage.NextAccountTransactionID,
-		AccountID: account.ID,
+// AddMoneyToAccount adds money to an account as transaction
+func AddMoneyToAccount(accountID string, amount float64, note string) bool {
+	tx := models.AccountTransaction{
+		ID:        utils.MustGenerateUUID(),
+		AccountID: accountID,
 		Amount:    amount,
 		Date:      time.Now(),
 		Note:      note,
+		Automatic: false,
 	}
-
-	storage.AccountTransactions = append(storage.AccountTransactions, newAccountTransaction)
-	storage.NextAccountTransactionID++
+	_, err := storage.Store.InsertAccountTransaction(tx)
+	return err == nil
 }
 
-// Calculate total balance across all accounts
-func GetTotalAccountBalance() float64 {
-	var total float64
-	for _, account := range storage.Accounts {
-		total += account.Balance
+// GetTotalAccountBalance returns total balance across all accounts
+func GetTotalAccountBalance(accountID string) float64 {
+	balance, err := storage.Store.GetTotalAccountsBalance()
+	if err != nil {
+		return 0
 	}
-	return total
+	return balance
 }
 
-func GetAccountTransactions(accoundId int) []models.AccountTransaction {
-	var transactionList []models.AccountTransaction
-	for _, transac := range storage.AccountTransactions {
-		if transac.AccountID == accoundId {
-			transactionList = append(transactionList, transac)
-		}
+// GetAccountTransactions returns transactions for an account
+func GetAccountTransactions(accoundID string) []models.AccountTransaction {
+	transactions, err := storage.Store.GetAccountTransactions(accoundID)
+	if err != nil {
+		return []models.AccountTransaction{}
 	}
-	return transactionList
+	return transactions
 }
