@@ -3,106 +3,73 @@ package core
 import (
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"time"
 )
 
-// Add a new goal
-func AddGoal(goal models.Goal) {
-	storage.Goals = append(storage.Goals, goal)
-	storage.NextGoalID++
+// AddGoal adds a new goal
+func AddGoal(goal models.Goal) error {
+	_, err := storage.Store.InsertGoal(goal)
+	return err
 }
 
-// Find goal by ID
-func FindGoal(id int) *models.Goal {
-	for i := range storage.Goals {
-		if storage.Goals[i].ID == id {
-			return &storage.Goals[i]
-		}
+// FindGoal finds a goal by ID
+func FindGoal(id string) *models.Goal {
+	goal, err := storage.Store.GetGoalByID(id)
+	if err != nil {
+		return nil
 	}
-	return nil
+	return goal
 }
 
-// Find goal index by ID
-func FindGoalIndex(id int) int {
-	for i, goal := range storage.Goals {
-		if goal.ID == id {
-			return i
-		}
-	}
-	return -1
+// DeleteGoal deletes a goal
+func DeleteGoal(id string) error {
+	return storage.Store.DeleteGoal(id)
 }
 
-// Delete goal by ID, Also delete all goal contributions for the specified goal
-func DeleteGoal(id int) bool {
-	for i := range storage.Goals {
-		if storage.Goals[i].ID == id {
-			var filteredGoalContributions []models.GoalContribution
-			for _, contribution := range storage.GoalContributions {
-				if contribution.GoalID != id {
-					filteredGoalContributions = append(filteredGoalContributions, contribution)
-				}
-			}
-			storage.GoalContributions = filteredGoalContributions
-			storage.Goals = append(storage.Goals[:i], storage.Goals[i+1:]...)
-			return true
-		}
+// GetActiveGoals returns all active goals
+func GetActiveGoals() []models.Goal {
+	goals, err := storage.Store.GetActiveGoals()
+	if err != nil {
+		return []models.Goal{}
 	}
-	return false
+	return goals
 }
 
-// Add contribution to a goal
-func AddGoalContribution(goalID int, amount float64, note string, automatic bool) bool {
-	goal := FindGoal(goalID)
-	if goal == nil {
-		return false
+// GetCompletedGoals returns all completed goals
+func GetCompletedGoals() []models.Goal {
+	goals, err := storage.Store.GetCompletedGoals()
+	if err != nil {
+		return []models.Goal{}
 	}
-
-	goal.CurrentAmount += amount
-	if goal.CurrentAmount >= goal.TargetAmount && goal.Status == "active" {
-		goal.CompletedDate = time.Now()
-		goal.Status = "complete"
-	}
-
-	contribution := models.GoalContribution{ID: storage.NextGoalContributionID, GoalID: goalID, Amount: amount, Date: time.Now(), Note: note, Automatic: automatic}
-	storage.GoalContributions = append(storage.GoalContributions, contribution)
-	storage.NextGoalContributionID++
-	return true
+	return goals
 }
 
-// Get contributions for a specific goal
-func GetGoalContributions(goalID int) []models.GoalContribution {
-	var contributions []models.GoalContribution
-	for _, contribute := range storage.GoalContributions {
-		if contribute.GoalID == goalID {
-			contributions = append(contributions, contribute)
-		}
+// AddGoalContribution adds a contribution to a goal
+func AddGoalContribution(goalID string, amount float64, note string, automatic bool) bool {
+	contribution := models.GoalContribution{
+		ID:        utils.MustGenerateUUID(),
+		GoalID:    goalID,
+		Amount:    amount,
+		Date:      time.Now(),
+		Note:      note,
+		Automatic: automatic,
+	}
+
+	_, err := storage.Store.InsertGoalContribution(contribution)
+	return err == nil
+}
+
+// GetGoalContributions returns contributions for a goal
+func GetGoalContributions(goalID string) []models.GoalContribution {
+	contributions, err := storage.Store.GetGoalContributions(goalID)
+	if err != nil {
+		return []models.GoalContribution{}
 	}
 	return contributions
 }
 
-// Get active goals
-func GetActiveGoals() []models.Goal {
-	var activeGoals []models.Goal
-	for _, goal := range storage.Goals {
-		if goal.Status == "active" {
-			activeGoals = append(activeGoals, goal)
-		}
-	}
-	return activeGoals
-}
-
-// Get completed goals
-func GetCompletedGoals() []models.Goal {
-	var completed []models.Goal
-	for _, goal := range storage.Goals {
-		if goal.Status == "complete" {
-			completed = append(completed, goal)
-		}
-	}
-	return completed
-}
-
-// Calculate goal progress percentage
+// GetGoalProgress calculates progress percentage
 func GetGoalProgress(goal models.Goal) float64 {
 	if goal.TargetAmount == 0 {
 		return 0
@@ -114,7 +81,7 @@ func GetGoalProgress(goal models.Goal) float64 {
 	return progressPercentage
 }
 
-// Calculate days remaining to deadline
+// GetDaysRemaining calculates days remaining to deadline
 func GetRemainingDays(goal models.Goal) int {
 	if !goal.HasDeadline {
 		return -1
@@ -124,7 +91,7 @@ func GetRemainingDays(goal models.Goal) int {
 	return remainingDays
 }
 
-// Calculate required monthly contribution to meet deadline
+// GetRequiredMonthlyContribution calculates required monthly contribution to meet target amount till deadline
 func GetRequiredMonthlyContribution(goal models.Goal) float64 {
 	if !goal.HasDeadline {
 		return 0
@@ -146,7 +113,7 @@ func GetRequiredMonthlyContribution(goal models.Goal) float64 {
 	return remainingAmount / remainingMonths
 }
 
-// Calculate projected completion date based on current contribution rate
+// GetProjectedCompletionDate calculates projected completion date based on the current contribution rate
 func GetProjectedCompletionDate(goal models.Goal) (time.Time, bool) {
 	contributions := GetGoalContributions(goal.ID)
 	if len(contributions) == 0 {
@@ -192,27 +159,17 @@ func GetProjectedCompletionDate(goal models.Goal) (time.Time, bool) {
 	return projectedDate, true
 }
 
-// Get total amount saved across all goals
+// GetTotalGoalsSaved returns total saved across all goals
 func GetTotalGoalsSaved() float64 {
-	var total float64
-	for _, goal := range storage.Goals {
-		total += goal.CurrentAmount
+	total, err := storage.Store.GetTotalGoalsSaved()
+	if err != nil {
+		return 0
 	}
 	return total
 }
 
-// Update goal status
-func UpdateGoalStatus(goalID int, newStatus string) bool {
-	goalIndex := FindGoalIndex(goalID)
-	if goalIndex == -1 {
-		return false
-	}
-
-	storage.Goals[goalIndex].Status = newStatus
-
-	if newStatus == "complete" && storage.Goals[goalIndex].CompletedDate.IsZero() {
-		storage.Goals[goalIndex].CompletedDate = time.Now()
-	}
-
-	return true
+// UpdateGoalStatus updates goal status
+func UpdateGoalStatus(goalID, newStatus string) bool {
+	err := storage.Store.UpdateGoalStatus(goalID, newStatus)
+	return err == nil
 }
