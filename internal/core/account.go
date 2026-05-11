@@ -13,12 +13,12 @@ func DeleteAccount(id string) error {
 }
 
 // AddAccount adds account
-func AddAccount(account models.Account) (id string) {
-	id, err := storage.Store.InsertAccount(account)
+func AddAccount(account models.Account) error {
+	_, err := storage.Store.InsertAccount(account)
 	if err != nil {
-		return ""
+		return err
 	}
-	return id
+	return nil
 }
 
 // FindAccount finds an account by ID
@@ -64,6 +64,15 @@ func GetTotalAccountBalance(accountID string) float64 {
 // GetAccountTransactions returns transactions for an account
 func GetAccountTransactions(accoundID string) []models.AccountTransaction {
 	transactions, err := storage.Store.GetAccountTransactions(accoundID)
+	if err != nil {
+		return []models.AccountTransaction{}
+	}
+	return transactions
+}
+
+// GetAllAccountTransactions returns transactions for all accounts
+func GetAllAccountTransactions() []models.AccountTransaction {
+	transactions, err := storage.Store.GetAllAccountTransactions()
 	if err != nil {
 		return []models.AccountTransaction{}
 	}

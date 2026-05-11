@@ -386,6 +386,22 @@ func (s *Store) scanAccountTransactions(rows *sql.Rows) ([]models.AccountTransac
 	return accountTransactions, nil
 }
 
+// GetAllAccountTransactions retrieves all transactions for all accounts
+func (s *Store) GetAllAccountTransactions() ([]models.AccountTransaction, error) {
+	query := `
+		SELECT id, account_id, amount, date, note, automatic
+		FROM account_transactions
+		ORDER BY date DESC`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find transactions for any account : %w", err)
+	}
+	defer rows.Close()
+
+	return s.scanAccountTransactions(rows)
+}
+
 // GetAccountTransactionByID retrieves a single account transaction
 func (s *Store) GetAccountTransactionByID(txID string) (*models.AccountTransaction, error) {
 	query := `
