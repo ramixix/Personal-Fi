@@ -2,7 +2,7 @@ package cli
 
 import (
 	"financial_tracker/internal/core"
-	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,8 +12,12 @@ import (
 func handleSummary() {
 	fmt.Println("Financial Summary")
 	fmt.Println("=================")
+	transactions := core.GetAllTransactions()
+	accounts := core.GetAllAccounts()
+	transactionsCount := len(transactions)
+	accountsCount := len(accounts)
 
-	if len(storage.Transactions) == 0 && len(storage.Accounts) == 0 {
+	if transactionsCount == 0 && accountsCount == 0 {
 		fmt.Println("No data available yet. Start by adding transactions or creating accounts!")
 		return
 	}
@@ -21,41 +25,41 @@ func handleSummary() {
 	totalIncome, totalExpenses := core.CalculateTotals()
 	netAmount := totalIncome - totalExpenses
 	fmt.Println("\n--- Overall Totals ---")
-	fmt.Printf("Total Income:    $%.2f\n", totalIncome)
-	fmt.Printf("Total Expenses:  $%.2f\n", totalExpenses)
-	fmt.Printf("Net Amount:      $%.2f", netAmount)
+	fmt.Printf("Total Income:    %.2f\n", totalIncome)
+	fmt.Printf("Total Expenses:  %.2f\n", totalExpenses)
+	fmt.Printf("Net Amount:      %.2f", netAmount)
 	if netAmount >= 0 {
 		fmt.Println(" ✓")
 	} else {
 		fmt.Println(" ⚠")
 	}
 
-	if len(storage.Transactions) > 0 {
+	if transactionsCount > 0 {
 		avgIncome, avgExpenses := core.GetMonthlyAverage()
 		fmt.Println("\n--- Monthly Averages ---")
-		fmt.Printf("Avg Income:      $%.2f\n", avgIncome)
-		fmt.Printf("Avg Expenses:    $%.2f\n", avgExpenses)
-		fmt.Printf("Avg Net:         $%.2f\n", avgIncome-avgExpenses)
+		fmt.Printf("Avg Income:      %.2f\n", avgIncome)
+		fmt.Printf("Avg Expenses:    %.2f\n", avgExpenses)
+		fmt.Printf("Avg Net:         %.2f\n", avgIncome-avgExpenses)
 	}
 
 	// Account summary
-	if len(storage.Accounts) > 0 {
+	if accountsCount > 0 {
 		fmt.Println("\n--- Accounts Summary ---")
 		var totalAccountBalance float64
-		for _, account := range storage.Accounts {
+		for _, account := range accounts {
 			totalAccountBalance += account.Balance
-			fmt.Printf("%-20s $%.2f\n", account.Name+":", account.Balance)
+			fmt.Printf("%-20s %s\n", account.Name+":", utils.FormatCurrency(account.Balance, account.CurrencyCode))
 		}
-		fmt.Printf("%-20s $%.2f\n", "Total in Accounts:", totalAccountBalance)
+		fmt.Printf("%-20s %.2f\n", "Total in Accounts:", totalAccountBalance)
 	}
 
 	// Transaction count
 	fmt.Println("\n--- Transaction Statistics ---")
-	fmt.Printf("Total Transactions: %d\n", len(storage.Transactions))
+	fmt.Printf("Total Transactions: %d\n", transactionsCount)
 
 	incomeCount := 0
 	expenseCount := 0
-	for _, t := range storage.Transactions {
+	for _, t := range transactions {
 		if t.Type == "income" {
 			incomeCount++
 		} else {
@@ -66,9 +70,9 @@ func handleSummary() {
 	fmt.Printf("Expense Entries:    %d\n", expenseCount)
 
 	// Date range
-	if len(storage.Transactions) > 0 {
-		var oldestDate, newestDate = storage.Transactions[0].Date, storage.Transactions[0].Date
-		for _, transaction := range storage.Transactions {
+	if transactionsCount > 0 {
+		var oldestDate, newestDate = transactions[0].Date, transactions[0].Date
+		for _, transaction := range transactions {
 			if transaction.Date.Before(oldestDate) {
 				oldestDate = transaction.Date
 			}
@@ -76,7 +80,7 @@ func handleSummary() {
 				newestDate = transaction.Date
 			}
 		}
-		fmt.Printf("Date Range:         %s to %s\n", oldestDate.Format("2006-01-02"), newestDate.Format("2006-01-02"))
+		fmt.Printf("Date Range: %s to %s\n", oldestDate.Format("2006-01-02"), newestDate.Format("2006-01-02"))
 	}
 }
 
