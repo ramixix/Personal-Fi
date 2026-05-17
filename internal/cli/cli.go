@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"financial_tracker/internal/storage"
 	"fmt"
 	"os"
 )
@@ -10,16 +9,9 @@ import (
 func Run() {
 	fmt.Println("=== Personal Financial Tracker ===")
 
-	// Load existing data
-	err := storage.LoadData()
-	if err != nil {
-		fmt.Printf("Warning: Could not load data: %v\n", err)
-	}
-
 	// Check if any command line arguments were provided
 	if len(os.Args) < 2 {
 		showHelp()
-		storage.SaveData()
 		return
 	}
 
@@ -56,11 +48,5 @@ func Run() {
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		showHelp()
-	}
-
-	// Save data after any command
-	err = storage.SaveData()
-	if err != nil {
-		fmt.Printf("Error saving data: %v\n", err)
 	}
 }
