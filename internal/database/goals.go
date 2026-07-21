@@ -29,12 +29,12 @@ func (s *Store) InsertGoal(goal models.Goal) (string, error) {
 
 	// Set default priority if not provided
 	if goal.Priority == "" {
-		goal.Priority = "medium"
+		goal.Priority = string(models.MediumPriority)
 	}
 
 	// Set default status if not provided
 	if goal.Status == "" {
-		goal.Status = "active"
+		goal.Status = string(models.StatusActive)
 	}
 
 	query := `
@@ -75,19 +75,61 @@ func (s *Store) InsertGoal(goal models.Goal) (string, error) {
 //=============================================== Create(C) =================================================
 
 // GetAllGoals retrieves all goals
-func (s *Store) GetAllGoals() ([]models.Goal, error) {
+
+func (s *Store) GetGoalsLength(status models.GoalStatus) (int, error) {
+	query := `SELECT COUNT(*) FROM goals`
+	args := []any{}
+
+	if status != "" && status == models.StatusActive || status == models.StatusCompleted {
+		query += ` WHERE status = ?`
+		args = append(args, status)
+	}
+
+	var count int
+	err := s.db.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		s.logger.Error("Failed to return Goals Length", "error", err)
+		return 0, fmt.Errorf("failed to get Goals Length: %w", err)
+	}
+	return count, nil
+}
+
+// GetGoalsPaginated return a specific "page" of goals
+func (s *Store) GetGoalsPaginated(limit, offset int) ([]models.Goal, error) {
 	query := `
 		SELECT id, name, description, target_amount, current_amount, currency_code,
 			   deadline, has_deadline, category, priority, status,
 			   linked_account_id, created, completed_date
 		FROM goals
 		ORDER BY created DESC
+		LIMIT ? OFFSET ?
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, limit, offset)
 	if err != nil {
-		s.logger.Error("Failed to query goals", "error", err)
-		return nil, fmt.Errorf("failed to query goals: %w", err)
+		s.logger.Error("Failed to query goal batch", "error", err)
+		return nil, fmt.Errorf("failed to read batch of goals: %w", err)
+	}
+	defer rows.Close()
+
+	return s.scanGoals(rows)
+}
+
+// GetRecentGoals returns N recent goals
+func (s *Store) GetRecentGoals(limit int) ([]models.Goal, error) {
+	query := `
+		SELECT id, name, description, target_amount, current_amount, currency_code,
+			   deadline, has_deadline, category, priority, status,
+			   linked_account_id, created, completed_date
+		FROM goals
+		ORDER BY created DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		s.logger.Error("Failed to query N recent goals", "error", err)
+		return nil, fmt.Errorf("failed to query N recent goals: %w", err)
 	}
 	defer rows.Close()
 
@@ -121,6 +163,11 @@ func (s *Store) scanGoals(rows *sql.Rows) ([]models.Goal, error) {
 			continue
 		}
 		goals = append(goals, goal)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
 	return goals, nil
@@ -167,7 +214,7 @@ func (s *Store) GetGoalByID(goalID string) (*models.Goal, error) {
 }
 
 // GetGoalsByStatus retrieves goals by status (active, completed, paused, cancelled)
-func (s *Store) GetGoalsByStatus(status string) ([]models.Goal, error) {
+func (s *Store) GetGoalsByStatus(status models.GoalStatus) ([]models.Goal, error) {
 	query := `
 		SELECT id, name, description, target_amount, current_amount, currency_code,
 			   deadline, has_deadline, category, priority, status,
@@ -188,16 +235,16 @@ func (s *Store) GetGoalsByStatus(status string) ([]models.Goal, error) {
 
 // GetActiveGoals retrieves all active goals
 func (s *Store) GetActiveGoals() ([]models.Goal, error) {
-	return s.GetGoalsByStatus("active")
+	return s.GetGoalsByStatus(models.StatusActive)
 }
 
 // GetCompletedGoals retrieves all completed goals
 func (s *Store) GetCompletedGoals() ([]models.Goal, error) {
-	return s.GetGoalsByStatus("completed")
+	return s.GetGoalsByStatus(models.StatusCompleted)
 }
 
 // GetGoalsByPriority retrieves goals by priority
-func (s *Store) GetGoalsByPriority(priority string) ([]models.Goal, error) {
+func (s *Store) GetGoalsByPriority(priority models.GoalPriority) ([]models.Goal, error) {
 	query := `
 		SELECT id, name, description, target_amount, current_amount, currency_code,
 			   deadline, has_deadline, category, priority, status,
@@ -304,7 +351,7 @@ func (s *Store) UpdateGoalStatus(goalID string, status string) error {
 	var query string
 	var args []interface{}
 
-	if status == "completed" {
+	if status == string(models.StatusCompleted) {
 		query = `UPDATE goals SET status = ?, completed_date = ? WHERE id = ?`
 		args = []interface{}{status, time.Now(), goalID}
 	} else {
@@ -335,7 +382,7 @@ func (s *Store) UpdateGoalCurrentAmount(goalID string, newAmount float64) error 
 		return err
 	}
 
-	if newAmount >= goal.TargetAmount && goal.Status == "active" {
+	if newAmount >= goal.TargetAmount && goal.Status == string(models.StatusActive) {
 		// Use transaction to update both amount and status
 		return s.completeGoalWithAmount(goalID, newAmount)
 	}
@@ -368,14 +415,14 @@ func (s *Store) AddToGoalAmount(goalID string, amount float64) error {
 	newAmount := goal.CurrentAmount + amount
 
 	// Check if goal is now completed
-	if newAmount >= goal.TargetAmount && goal.Status == "active" {
+	if newAmount >= goal.TargetAmount && goal.Status == string(models.StatusActive) {
 		// Use transaction to update both amount and status
 		return s.completeGoalWithAmount(goalID, newAmount)
 	}
 
 	// Just update the amount
-	query := `UPDATE goals SET current_amount = current_amount + ? WHERE id = ? AND balance + ? >= 0~`
-	result, err := s.db.Exec(query, amount, goalID)
+	query := `UPDATE goals SET current_amount = ? WHERE id = ?`
+	result, err := s.db.Exec(query, newAmount, goalID)
 	if err != nil {
 		s.logger.Error("Failed to add to goal amount", "error", err, "id", goalID)
 		return fmt.Errorf("failed to add to goal amount: %w", err)
@@ -394,11 +441,11 @@ func (s *Store) AddToGoalAmount(goalID string, amount float64) error {
 func (s *Store) completeGoalWithAmount(goalID string, newAmount float64) error {
 	query := `
 		UPDATE goals 
-		SET current_amount = ?, status = 'completed', completed_date = ?
+		SET current_amount = ?, status = ?, completed_date = ?
 		WHERE id = ?
 	`
 
-	result, err := s.db.Exec(query, newAmount, time.Now(), goalID)
+	result, err := s.db.Exec(query, newAmount, models.StatusCompleted, time.Now(), goalID)
 	if err != nil {
 		return fmt.Errorf("failed to complete goal: %w", err)
 	}
@@ -435,17 +482,40 @@ func (s *Store) DeleteGoal(goalID string) error {
 
 //=============================================== ANALYTICS =================================================
 
-// GetTotalGoalsSaved calculates total saved across all goals
-func (s *Store) GetTotalGoalsSaved() (float64, error) {
-	query := `SELECT COALESCE(SUM(current_amount), 0) FROM goals`
+// GetTotalGoalsAmountByCurrency calculates total saved across all goals
+func (s *Store) GetTotalGoalsAmountByCurrency() (map[string]float64, error) {
+	query := `
+		SELECT currency_code, COALESCE(SUM(current_amount), 0)
+		FROM goals
+		GROUP BY currency_code
+	`
 
-	var total float64
-	err := s.db.QueryRow(query).Scan(&total)
+	rows, err := s.db.Query(query)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get total goals saved: %w", err)
+		s.logger.Error("Failed to query goals balances by currency", "error", err)
+		return nil, fmt.Errorf("failed to get goals balances by currency: %w", err)
+	}
+	defer rows.Close()
+
+	balances := make(map[string]float64)
+
+	for rows.Next() {
+		var currencyCode string
+		var amount float64
+
+		if err := rows.Scan(&currencyCode, &amount); err != nil {
+			s.logger.Error("Failed to scan account balance row", "error", err)
+			continue
+		}
+		balances[currencyCode] = amount
 	}
 
-	return total, nil
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over balance rows", "error", err)
+		return nil, fmt.Errorf("error iterating over balances: %w", err)
+	}
+
+	return balances, nil
 }
 
 // GetGoalProgress calculates progress percentage for a goal
@@ -556,8 +626,21 @@ func (s *Store) InsertGoalContribution(contribution models.GoalContribution) (st
 
 //=============================================== READ(R) =================================================
 
-// GetGoalContributions retrieves all contributions for a goal
-func (s *Store) GetGoalContributions(goalID string) ([]models.GoalContribution, error) {
+// GetContributionsLength returns total number goal contributions
+func (s *Store) GetGoalContributionsLength() (int, error) {
+	query := `SELECT COUNT(*) FROM goal_contributions`
+
+	var count int
+	err := s.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		s.logger.Error("Failed to return contributions Length", "error", err)
+		return 0, fmt.Errorf("failed to get contirbution Length: %w", err)
+	}
+	return count, nil
+}
+
+// GetSpecificGoalContributions returns All contributions for a specific goal
+func (s *Store) GetSpecificGoalContributions(goalID string) ([]models.GoalContribution, error) {
 	query := `
 		SELECT id, goal_id, amount, date, note, automatic
 		FROM goal_contributions
@@ -595,6 +678,11 @@ func (s *Store) scanGoalContributions(rows *sql.Rows) ([]models.GoalContribution
 		contributions = append(contributions, contribution)
 	}
 
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over balance rows", "error", err)
+		return nil, fmt.Errorf("error iterating over balances: %w", err)
+	}
+
 	return contributions, nil
 }
 
@@ -626,6 +714,24 @@ func (s *Store) GetGoalContributionByID(id string) (*models.GoalContribution, er
 	return &contribution, nil
 }
 
+// GetRecentContributions retrieves N contributions related to all goals
+func (s *Store) GetRecentContributions(limit int) ([]models.GoalContribution, error) {
+	query := `
+		SELECT id, goal_id, amount, date, note, automatic
+		FROM goal_contributions
+		ORDER BY date DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get goal contributions: %w", err)
+	}
+	defer rows.Close()
+
+	return s.scanGoalContributions(rows)
+}
+
 //=============================================== UPDATE(U) =================================================
 
 // UpdateGoalContribution updates a contribution and adjusts goal amount
@@ -642,12 +748,12 @@ func (s *Store) UpdateGoalContribution(newContributionValue models.GoalContribut
 	defer dbTx.Rollback()
 
 	query := `
-		UPDATE goal_contribution
+		UPDATE goal_contributions
 		SET goal_id = ?, amount = ?, date = ?, note = ?, automatic = ?
 		WHERE id = ?
 	`
 
-	result, err := s.db.Exec(
+	result, err := dbTx.Exec(
 		query,
 		newContributionValue.GoalID,
 		newContributionValue.Amount,
@@ -717,8 +823,8 @@ func (s *Store) DeleteGoalContribution(id string) error {
 		return err
 	}
 
-	if goal.Status == "completed" && goal.CurrentAmount < goal.TargetAmount {
-		err := s.UpdateGoalStatus(goal.ID, "active")
+	if goal.Status == string(models.StatusCompleted) && goal.CurrentAmount < goal.TargetAmount {
+		err := s.UpdateGoalStatus(goal.ID, string(models.StatusActive))
 		if err != nil {
 			return err
 		}

@@ -44,18 +44,51 @@ func (s *Store) InsertAccount(account models.Account) (string, error) {
 
 //=============================================== Read(R) =================================================
 
-// GetAllAccounts retrieves all accounts
-func (s *Store) GetAllAccounts() ([]models.Account, error) {
+// GetAccountsLength returns the number of accounts
+func (s *Store) GetAccountsLength() (int, error) {
+	query := `SELECT COUNT(*) FROM accounts`
+
+	var count int
+	err := s.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		s.logger.Error("Failed to return accounts Length", "error", err)
+		return 0, fmt.Errorf("failed to get accounts Length: %w", err)
+	}
+	return count, nil
+}
+
+// GetAccountsPaginated return a specific "page" of accounts
+func (s *Store) GetAccountsPaginated(limit, offset int) ([]models.Account, error) {
 	query := `
 		SELECT id, name, balance, currency_code, created
 		FROM accounts
-		ORDERED BY created DESC
+		ORDER BY created DESC
+		LIMIT ? OFFSET ?
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, limit, offset)
 	if err != nil {
-		s.logger.Error("Failed to query accounts(GetAllAccounts)", "error", err)
-		return nil, fmt.Errorf("failed to read all account: %w", err)
+		s.logger.Error("Failed to query accounts batch", "error", err)
+		return nil, fmt.Errorf("failed to read batch of accounts: %w", err)
+	}
+	defer rows.Close()
+
+	return s.scanAccounts(rows)
+}
+
+// GetRecentAccounts returns N recent accounts
+func (s *Store) GetRecentAccounts(limit int) ([]models.Account, error) {
+	query := `
+		SELECT id, name, balance, currency_code, created
+		FROM accounts
+		ORDER BY created DESC
+		LIMIT ?
+	`
+
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		s.logger.Error("Failed to query recent account", "error", err)
+		return nil, fmt.Errorf("failed to read recent account: %w", err)
 	}
 	defer rows.Close()
 
@@ -75,6 +108,12 @@ func (s *Store) scanAccounts(rows *sql.Rows) ([]models.Account, error) {
 
 		accounts = append(accounts, account)
 	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
 	return accounts, nil
 }
 
@@ -86,7 +125,7 @@ func (s *Store) GetAccountByID(id string) (*models.Account, error) {
 		WHERE id = ?
 	`
 	var account models.Account
-	err := s.db.QueryRow(query, id).Scan(&account.ID, account.Name, account.Balance, account.CurrencyCode, account.Created)
+	err := s.db.QueryRow(query, id).Scan(&account.ID, &account.Name, &account.Balance, &account.CurrencyCode, &account.Created)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("account not found: %s", id)
@@ -236,58 +275,40 @@ func (s *Store) DeleteAccount(id string) error {
 
 //=============================================== ANALYTICS =================================================
 
-// GetTotalAccountsBalance calculates total balance across all accounts
-func (s *Store) GetTotalAccountsBalance() (float64, error) {
-	query := `Select COALESCE(sum(balance), 0) FROM accounts`
-
-	var totalBalance float64
-	err := s.db.QueryRow(query).Scan(&totalBalance)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get total balance: %w", err)
-	}
-
-	return totalBalance, nil
-}
-
 // GetTotalAccountsBalanceByCurrency calculates total balance per currency
 func (s *Store) GetTotalAccountsBalanceByCurrency() (map[string]float64, error) {
 	query := `
-		SELECT currency_code, SUM(balance)
-		FROM accounts
-		GROUP BY currency_code
-	`
+        SELECT currency_code, COALESCE(SUM(balance), 0)
+        FROM accounts
+        GROUP BY currency_code
+    `
 
 	rows, err := s.db.Query(query)
 	if err != nil {
+		s.logger.Error("Failed to query balances by currency", "error", err)
 		return nil, fmt.Errorf("failed to get balance by currency: %w", err)
 	}
 	defer rows.Close()
 
-	var balances = make(map[string]float64)
+	balances := make(map[string]float64)
+
 	for rows.Next() {
-		var currency_code string
+		var currencyCode string
 		var amount float64
-		err := rows.Scan(&currency_code, &amount)
-		if err != nil {
+
+		if err := rows.Scan(&currencyCode, &amount); err != nil {
+			s.logger.Error("Failed to scan account balance row", "error", err)
 			continue
 		}
-		balances[currency_code] = amount
+		balances[currencyCode] = amount
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over balance rows", "error", err)
+		return nil, fmt.Errorf("error iterating over balances: %w", err)
 	}
 
 	return balances, nil
-}
-
-// GetAccountCount returns the number of accounts
-func (s *Store) GetAccountCount() (int, error) {
-	query := `SELECT COUNT(*) FROM accounts`
-
-	var count int
-	err := s.db.QueryRow(query).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get account count: %w", err)
-	}
-
-	return count, nil
 }
 
 //=============================================== ACCOUNT TRANSACTIONS =================================================
@@ -320,7 +341,7 @@ func (s *Store) InsertAccountTransaction(tx models.AccountTransaction) (string, 
 		INSERT INTO account_transactions (id, account_id, amount, date, note, automatic)
 		VALUES(?, ?, ?, ?, ?, ?)`
 
-	_, err = s.db.Exec(query, tx.ID, tx.AccountID, tx.Amount, tx.Date, tx.Note, tx.Automatic)
+	_, err = dbTx.Exec(query, tx.ID, tx.AccountID, tx.Amount, tx.Date, tx.Note, tx.Automatic)
 	if err != nil {
 		s.logger.Error("Failed to insert account transaction", "error", err, "id", tx.ID)
 		return "", fmt.Errorf("failed to insert account transaction: %w", err)
@@ -329,7 +350,7 @@ func (s *Store) InsertAccountTransaction(tx models.AccountTransaction) (string, 
 	// Update account balance
 	updateBalanceQuery := `UPDATE accounts SET balance = balance + ? WHERE id = ?`
 
-	result, err := s.db.Exec(updateBalanceQuery, tx.Amount, tx.AccountID)
+	result, err := dbTx.Exec(updateBalanceQuery, tx.Amount, tx.AccountID)
 	if err != nil {
 		s.logger.Error("Failed to update account balance", "error", err, "account_id", tx.AccountID)
 		return "", fmt.Errorf("failed to update account balance: %w", err)
@@ -352,8 +373,39 @@ func (s *Store) InsertAccountTransaction(tx models.AccountTransaction) (string, 
 
 //=============================================== Read(R) =================================================
 
-// GetAccountTransactions retrieves all transactions for an account
-func (s *Store) GetAccountTransactions(accountID string) ([]models.AccountTransaction, error) {
+// GetAllAccountsTransactionsLength returns the total number of transactions efficiently
+func (s *Store) GetAccountsTransactionsLength() (int, error) {
+	query := `SELECT COUNT(*) FROM account_transactions`
+
+	var count int
+	err := s.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		s.logger.Error("Failed to return accounts transactions Length", "error", err)
+		return 0, fmt.Errorf("failed to get accounts transactions Length: %w", err)
+	}
+	return count, nil
+}
+
+// GetAccountTransactionsPaginated returns a specific page of account transactions
+func (s *Store) GetAccountTransactionsPaginated(limit, offset int) ([]models.AccountTransaction, error) {
+	query := `
+		SELECT id, account_id, amount, date, note, automatic
+		FROM account_transactions
+		ORDER BY date DESC
+		LIMIT ? OFFSET ?`
+
+	rows, err := s.db.Query(query, limit, offset)
+	if err != nil {
+		s.logger.Error("Failed to query paginated account transactions", "error", err)
+		return nil, fmt.Errorf("failed to find batch of account transactions : %w", err)
+	}
+	defer rows.Close()
+
+	return s.scanAccountTransactions(rows)
+}
+
+// GetOneAccountTransactions retrieves all transactions for an specific account
+func (s *Store) GetOneAccountTransactions(accountID string) ([]models.AccountTransaction, error) {
 	query := `
 		SELECT id, account_id, amount, date, note, automatic
 		FROM account_transactions
@@ -383,27 +435,16 @@ func (s *Store) scanAccountTransactions(rows *sql.Rows) ([]models.AccountTransac
 		accountTransactions = append(accountTransactions, tx)
 	}
 
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
 	return accountTransactions, nil
 }
 
-// GetAllAccountTransactions retrieves all transactions for all accounts
-func (s *Store) GetAllAccountTransactions() ([]models.AccountTransaction, error) {
-	query := `
-		SELECT id, account_id, amount, date, note, automatic
-		FROM account_transactions
-		ORDER BY date DESC`
-
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find transactions for any account : %w", err)
-	}
-	defer rows.Close()
-
-	return s.scanAccountTransactions(rows)
-}
-
-// GetAccountTransactionByID retrieves a single account transaction
-func (s *Store) GetAccountTransactionByID(txID string) (*models.AccountTransaction, error) {
+// GetSingleAccountTransactionByID retrieves a single account transaction
+func (s *Store) GetSingleAccountTransactionByID(txID string) (*models.AccountTransaction, error) {
 	query := `
 		SELECT id, account_id, amount, date, note, automatic
 		FROM account_transactions
@@ -428,7 +469,7 @@ func (s *Store) GetAccountTransactionByID(txID string) (*models.AccountTransacti
 // UpdateAccountTransaction updates an account transaction and adjusts balance
 func (s *Store) UpdateAccountTransaction(newTxValue models.AccountTransaction) error {
 	// Get transaction first to know the amount
-	transac, err := s.GetAccountTransactionByID(newTxValue.ID)
+	transac, err := s.GetSingleAccountTransactionByID(newTxValue.ID)
 	if err != nil {
 		return err
 	}
@@ -445,7 +486,7 @@ func (s *Store) UpdateAccountTransaction(newTxValue models.AccountTransaction) e
 		WHERE id = ?
 	`
 
-	_, err = s.db.Exec(query, newTxValue.AccountID, newTxValue.Amount, newTxValue.Date, newTxValue.Note, newTxValue.Automatic, newTxValue.ID)
+	_, err = dbTx.Exec(query, newTxValue.AccountID, newTxValue.Amount, newTxValue.Date, newTxValue.Note, newTxValue.Automatic, newTxValue.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update account transaction: %w", err)
 	}
@@ -455,7 +496,7 @@ func (s *Store) UpdateAccountTransaction(newTxValue models.AccountTransaction) e
 		UPDATE accounts
 		SET balance = balance + ?
 		WHERE id = ?`
-	_, err = s.db.Exec(updateQuery, balanceDifference, transac.AccountID)
+	_, err = dbTx.Exec(updateQuery, balanceDifference, transac.AccountID)
 	if err != nil {
 		return fmt.Errorf("failed to update account balance: %w", err)
 	}
@@ -474,7 +515,7 @@ func (s *Store) UpdateAccountTransaction(newTxValue models.AccountTransaction) e
 // DeleteAccountTransaction deletes an account transaction and adjusts balance
 func (s *Store) DeleteAccountTransaction(txID string) error {
 	// Get transaction first to know the amount
-	transac, err := s.GetAccountTransactionByID(txID)
+	transac, err := s.GetSingleAccountTransactionByID(txID)
 	if err != nil {
 		return err
 	}
@@ -487,7 +528,7 @@ func (s *Store) DeleteAccountTransaction(txID string) error {
 	defer dbTx.Rollback()
 
 	query := `DELETE FROM account_transactions WHERE id = ?`
-	_, err = s.db.Exec(query, txID)
+	_, err = dbTx.Exec(query, txID)
 	if err != nil {
 		return fmt.Errorf("failed to delete account transaction: %w", err)
 	}
@@ -496,7 +537,7 @@ func (s *Store) DeleteAccountTransaction(txID string) error {
 		UPDATE accounts
 		SET balance = balance - ?
 		WHERE id = ?`
-	_, err = s.db.Exec(updateQuery, transac.Amount, transac.AccountID)
+	_, err = dbTx.Exec(updateQuery, transac.Amount, transac.AccountID)
 	if err != nil {
 		return fmt.Errorf("failed to update account balance: %w", err)
 	}

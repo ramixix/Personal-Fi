@@ -62,7 +62,7 @@ func (s *Store) migrate() error {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 	// "file://internal/database/migrations",
-	migrationManager, err := migrate.NewWithDatabaseInstance("file://migrations", "sqlite", driver)
+	migrationManager, err := migrate.NewWithDatabaseInstance("file://internal/database/migrations", "sqlite", driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migration manager: %w", err)
 	}
