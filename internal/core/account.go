@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-// DeleteAccount deletes an account
-func DeleteAccount(id string) error {
-	return storage.Store.DeleteAccount(id)
-}
-
 // AddAccount adds account
 func AddAccount(account models.Account) error {
 	_, err := storage.Store.InsertAccount(account)
@@ -30,12 +25,62 @@ func FindAccount(id string) *models.Account {
 	return account
 }
 
-func GetAllAccounts() []models.Account {
-	accounts, err := storage.Store.GetAllAccounts()
+// GetAccountsLength returns total number of accounts
+func GetAccountsLength() int {
+	length, err := storage.Store.GetAccountsLength()
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
+// GetAccountsBatch returns specific page/batch of accounts
+func GetAccountsBatch(batchsize, offset int) []models.Account {
+	accounts, err := storage.Store.GetAccountsPaginated(batchsize, offset)
 	if err != nil {
 		return []models.Account{}
 	}
 	return accounts
+}
+
+// GetRecentAccounts returns N recent accounts
+func GetRecentAccounts(limit int) []models.Account {
+	accounts, err := storage.Store.GetRecentAccounts(limit)
+	if err != nil {
+		return []models.Account{}
+	}
+	return accounts
+}
+
+// GetTotalAccountBalance returns total balance across all accounts
+func GetTotalAccountsBalanceByCurrency() map[string]float64 {
+	balance, err := storage.Store.GetTotalAccountsBalanceByCurrency()
+	if err != nil {
+		return nil
+	}
+	return balance
+}
+
+// SearchAccountsByName searchs accounts by name
+func GetAccountsByName(name string) *models.Account {
+	if name == "" {
+		return nil
+	}
+
+	results, err := storage.Store.GetAccountByName(name)
+	if err != nil {
+		return nil
+	}
+	return results
+}
+
+// UpdateAccount updates an account values.
+func UpdateAccount(account models.Account) error {
+	err := storage.Store.UpdateAccount(account)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AddMoneyToAccount adds money to an account as transaction
@@ -52,27 +97,32 @@ func AddMoneyToAccount(accountID string, amount float64, note string) bool {
 	return err == nil
 }
 
-// GetTotalAccountBalance returns total balance across all accounts
-func GetTotalAccountBalance(accountID string) float64 {
-	balance, err := storage.Store.GetTotalAccountsBalance()
-	if err != nil {
-		return 0
-	}
-	return balance
+// DeleteAccount deletes an account
+func DeleteAccount(id string) error {
+	return storage.Store.DeleteAccount(id)
 }
 
-// GetAccountTransactions returns transactions for an account
-func GetAccountTransactions(accoundID string) []models.AccountTransaction {
-	transactions, err := storage.Store.GetAccountTransactions(accoundID)
+// GetOneAccountTransactions returns transactions for an account
+func GetOneAccountTransactions(accoundID string) []models.AccountTransaction {
+	transactions, err := storage.Store.GetOneAccountTransactions(accoundID)
 	if err != nil {
 		return []models.AccountTransaction{}
 	}
 	return transactions
 }
 
-// GetAllAccountTransactions returns transactions for all accounts
-func GetAllAccountTransactions() []models.AccountTransaction {
-	transactions, err := storage.Store.GetAllAccountTransactions()
+// GetAccountsTransactionsLength return total number of account transactions
+func GetAccountsTransactionsLength() int {
+	length, err := storage.Store.GetAccountsTransactionsLength()
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
+// GetAccountTransactionsBatch returns a specific page of account transactions
+func GetAccountTransactionsBatch(batchsize, offset int) []models.AccountTransaction {
+	transactions, err := storage.Store.GetAccountTransactionsPaginated(batchsize, offset)
 	if err != nil {
 		return []models.AccountTransaction{}
 	}

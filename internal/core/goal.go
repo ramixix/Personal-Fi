@@ -4,6 +4,7 @@ import (
 	"financial_tracker/internal/models"
 	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
+	"strings"
 	"time"
 )
 
@@ -11,6 +12,15 @@ import (
 func AddGoal(goal models.Goal) error {
 	_, err := storage.Store.InsertGoal(goal)
 	return err
+}
+
+// UpdateGoal updates given goal
+func UpdateGoal(goal models.Goal) error {
+	err := storage.Store.UpdateGoal(goal)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // FindGoal finds a goal by ID
@@ -22,9 +32,31 @@ func FindGoal(id string) *models.Goal {
 	return goal
 }
 
-// DeleteGoal deletes a goal
-func DeleteGoal(id string) error {
-	return storage.Store.DeleteGoal(id)
+// GetGoalsLength returns total number of goals
+func GetGoalsLength(status models.GoalStatus) int {
+	length, err := storage.Store.GetGoalsLength(status)
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
+// GetGoalsBatch returns specific page/batch of goals
+func GetGoalsBatch(batchsize, offset int) []models.Goal {
+	goals, err := storage.Store.GetGoalsPaginated(batchsize, offset)
+	if err != nil {
+		return []models.Goal{}
+	}
+	return goals
+}
+
+// GetRecentGoals(N) returns last N goals
+func GetRecentGoals(limit int) []models.Goal {
+	goals, err := storage.Store.GetRecentGoals(limit)
+	if err != nil {
+		return []models.Goal{}
+	}
+	return goals
 }
 
 // GetActiveGoals returns all active goals
@@ -45,6 +77,50 @@ func GetCompletedGoals() []models.Goal {
 	return goals
 }
 
+// GetGoalProgress calculates progress percentage
+func GetGoalProgress(goal models.Goal) float64 {
+	if goal.TargetAmount == 0 {
+		return 0
+	}
+	progressPercentage := (goal.CurrentAmount / goal.TargetAmount) * 100
+	if progressPercentage > 100 {
+		progressPercentage = 100
+	}
+	return progressPercentage
+}
+
+// UpdateGoalStatus updates goal status
+func UpdateGoalStatus(goalID, newStatus string) bool {
+	err := storage.Store.UpdateGoalStatus(goalID, newStatus)
+	return err == nil
+}
+
+// GetTotalGoalsAmountByCurrency returns total saved across all goals
+func GetTotalGoalsAmountByCurrency() map[string]float64 {
+	total, err := storage.Store.GetTotalGoalsAmountByCurrency()
+	if err != nil {
+		return nil
+	}
+	return total
+}
+
+// SearchGoalsByKeyword searchs goals by keyword in name or description or category
+func SearchGoalsByKeyword(keyword string) []models.Goal {
+	keyword = strings.ToLower(keyword)
+
+	results, err := storage.Store.SearchGoals(keyword)
+	if err != nil {
+		return []models.Goal{}
+	}
+
+	return results
+}
+
+// DeleteGoal deletes a goal
+func DeleteGoal(id string) error {
+	return storage.Store.DeleteGoal(id)
+}
+
 // AddGoalContribution adds a contribution to a goal
 func AddGoalContribution(goalID string, amount float64, note string, automatic bool) bool {
 	contribution := models.GoalContribution{
@@ -60,26 +136,41 @@ func AddGoalContribution(goalID string, amount float64, note string, automatic b
 	return err == nil
 }
 
+// GetGoalContributionsLength returns total number of goal contributions
+func GetGoalContributionsLength() int {
+	length, err := storage.Store.GetGoalContributionsLength()
+	if err != nil {
+		return 0
+	}
+	return length
+}
+
 // GetGoalContributions returns contributions for a goal
-func GetGoalContributions(goalID string) []models.GoalContribution {
-	contributions, err := storage.Store.GetGoalContributions(goalID)
+func GetSpecificGoalContributions(goalID string) []models.GoalContribution {
+	contributions, err := storage.Store.GetSpecificGoalContributions(goalID)
 	if err != nil {
 		return []models.GoalContribution{}
 	}
 	return contributions
 }
 
-// GetGoalProgress calculates progress percentage
-func GetGoalProgress(goal models.Goal) float64 {
-	if goal.TargetAmount == 0 {
-		return 0
+// GetAllContributions(N) returns N contributions of all goals
+func GetRecentContributions(limit int) []models.GoalContribution {
+	contributions, err := storage.Store.GetRecentContributions(limit)
+	if err != nil {
+		return []models.GoalContribution{}
 	}
-	progressPercentage := (goal.CurrentAmount / goal.TargetAmount) * 100
-	if progressPercentage > 100 {
-		progressPercentage = 100
-	}
-	return progressPercentage
+	return contributions
 }
+
+// GetAllContributions returns all contributions for all goals
+// func GetAllContributions() []models.GoalContribution {
+// 	contributions, err := storage.Store.GetAllContributions()
+// 	if err != nil {
+// 		return []models.GoalContribution{}
+// 	}
+// 	return contributions
+// }
 
 // GetDaysRemaining calculates days remaining to deadline
 func GetRemainingDays(goal models.Goal) int {
@@ -115,7 +206,7 @@ func GetRequiredMonthlyContribution(goal models.Goal) float64 {
 
 // GetProjectedCompletionDate calculates projected completion date based on the current contribution rate
 func GetProjectedCompletionDate(goal models.Goal) (time.Time, bool) {
-	contributions := GetGoalContributions(goal.ID)
+	contributions := GetSpecificGoalContributions(goal.ID)
 	if len(contributions) == 0 {
 		// Can't calculate without history
 		return time.Time{}, false
@@ -157,19 +248,4 @@ func GetProjectedCompletionDate(goal models.Goal) (time.Time, bool) {
 	daysNeeded := remainingContributionMoney / dailyRate
 	projectedDate := time.Now().Add(time.Duration(daysNeeded*24) * time.Hour)
 	return projectedDate, true
-}
-
-// GetTotalGoalsSaved returns total saved across all goals
-func GetTotalGoalsSaved() float64 {
-	total, err := storage.Store.GetTotalGoalsSaved()
-	if err != nil {
-		return 0
-	}
-	return total
-}
-
-// UpdateGoalStatus updates goal status
-func UpdateGoalStatus(goalID, newStatus string) bool {
-	err := storage.Store.UpdateGoalStatus(goalID, newStatus)
-	return err == nil
 }
