@@ -4,7 +4,7 @@ import (
 	"errors"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"strconv"
 	"strings"
@@ -58,11 +58,21 @@ func (t *TransactionsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("💰 Transactions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
 	// Quick stats
-	totalIncome, totalExpenses := core.CalculateTotals()
-	totalCount := len(storage.Transactions)
-	stats := fmt.Sprintf("Total: %d transactions  |  Income: $%.2f  |  Expenses: $%.2f", totalCount, totalIncome, totalExpenses)
+	totals, err := core.CalculateTotalsByCurrency()
+	totalCount := core.GetTransactionsLength("")
+	var stats strings.Builder
+	stats.WriteString(fmt.Sprintf("Total: %d transactions\n", totalCount))
+	if err == nil && totals != nil {
+		for currency, currencyTotals := range totals {
+			stats.WriteString(fmt.Sprintf("Currency: %s | Income: %s  |  Expenses: %s\n",
+				currency,
+				utils.FormatCurrency(currencyTotals.Income, currency),
+				utils.FormatCurrency(currencyTotals.Expenses, currency)))
 
-	statLabel := widget.NewLabel(stats)
+		}
+	}
+
+	statLabel := widget.NewLabel(strings.TrimSpace(stats.String()))
 
 	// Add transaction button
 	transacAddBtn := widget.NewButton("Add Transaction", func() { t.showAddTransactionDialog() })
@@ -98,6 +108,10 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 		return nil
 	}
 
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+	currencySelect.SetSelected("USD ($)")
+
 	categorySelectEntry := widget.NewSelectEntry(core.GetCategories())
 	categorySelectEntry.SetPlaceHolder("Category")
 
@@ -121,6 +135,7 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 	items := []*widget.FormItem{
 		widget.NewFormItem("Type*", typeSelect),
 		widget.NewFormItem("Amount*", amountEntry),
+		widget.NewFormItem("Currency*", currencySelect),
 		widget.NewFormItem("Category*", categorySelectEntry),
 		widget.NewFormItem("Description", descriptionEntery),
 	}
@@ -138,16 +153,22 @@ func (t *TransactionsScreen) showAddTransactionDialog() {
 			return
 		}
 
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), t.guiApp.GuiWindow)
+			return
+		}
+		selectedCurrencyCode := currencySelect.Selected[:3]
+
 		newTransaction := models.Transaction{
-			ID:          storage.NextTransactionID,
-			Date:        time.Now(),
-			Amount:      amount,
-			Category:    category,
-			Description: strings.TrimSpace(descriptionEntery.Text),
-			Type:        typeSelect.Selected,
+			ID:           utils.MustGenerateUUID(),
+			Date:         time.Now(),
+			Amount:       amount,
+			CurrencyCode: selectedCurrencyCode,
+			Category:     category,
+			Description:  strings.TrimSpace(descriptionEntery.Text),
+			Type:         typeSelect.Selected,
 		}
 		core.AddTransaction(newTransaction)
-		storage.SaveData()
 
 		dialog.ShowInformation("Success", "Transaction added successfully!", t.guiApp.GuiWindow)
 		t.guiApp.ShowTransactionsScreen()
@@ -294,7 +315,7 @@ func (t *TransactionsScreen) getFilteredTransactions() []models.Transaction {
 		EndDate:         endDate,
 	}
 
-	var transactions []models.Transaction = core.AdvancedSearchTransactions(itemsToSearch)
+	var transactions []models.Transaction = core.GetTransactionsAdvanceSearch(itemsToSearch)
 	return transactions
 }
 
@@ -334,7 +355,7 @@ func (t *TransactionsScreen) createTransactionCard(transaction models.Transactio
 
 	leftside := container.NewVBox(titleLabel, descriptionLabel, dateLabel)
 
-	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%.2f", amountPrefix, transaction.Amount), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+	amountLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s%s", amountPrefix, utils.FormatCurrency(transaction.Amount, transaction.CurrencyCode)), fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
 
 	editBtn := widget.NewButton("Edit", func() { t.showEditTransactionDialog(transaction) })
 	editBtn.Importance = widget.WarningImportance
@@ -373,6 +394,14 @@ func (t *TransactionsScreen) showEditTransactionDialog(transaction models.Transa
 		return nil
 	}
 
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+	currentSelection := transaction.CurrencyCode
+	if symbol, exists := utils.CurrencySymbols[transaction.CurrencyCode]; exists && symbol != "" {
+		currentSelection = fmt.Sprintf("%s (%s)", transaction.CurrencyCode, symbol)
+	}
+	currencySelect.SetSelected(currentSelection)
+
 	categorySelectEntry := widget.NewSelectEntry(core.GetCategories())
 	categorySelectEntry.SetText(transactionPointer.Category)
 	categorySelectEntry.Validator = func(cat string) error {
@@ -389,6 +418,7 @@ func (t *TransactionsScreen) showEditTransactionDialog(transaction models.Transa
 	formItmes := []*widget.FormItem{
 		widget.NewFormItem("Type", typeSelect),
 		widget.NewFormItem("Amount", amountEntry),
+		widget.NewFormItem("Currency", currencySelect),
 		widget.NewFormItem("Categroy", categorySelectEntry),
 		widget.NewFormItem("Description", descriptionEntry),
 	}
@@ -399,12 +429,22 @@ func (t *TransactionsScreen) showEditTransactionDialog(transaction models.Transa
 		}
 		amount, _ := strconv.ParseFloat(strings.TrimSpace(amountEntry.Text), 64)
 
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), t.guiApp.GuiWindow)
+			return
+		}
+
+		transactionPointer.CurrencyCode = currencySelect.Selected[:3]
 		transactionPointer.Type = typeSelect.Selected
 		transactionPointer.Amount = amount
 		transactionPointer.Category = categorySelectEntry.Text
 		transactionPointer.Description = descriptionEntry.Text
 
-		storage.SaveData()
+		if err := core.UpdateTransaction(transactionPointer); err != nil {
+			dialog.ShowError(fmt.Errorf("Error: unable to update transactions"), t.guiApp.GuiWindow)
+			return
+		}
+
 		dialog.ShowInformation("Success", "Transaction Updated Sucessfully", t.guiApp.GuiWindow)
 		t.guiApp.ShowTransactionsScreen()
 	}, t.guiApp.GuiWindow)
@@ -419,9 +459,8 @@ func (t *TransactionsScreen) confirmTransactionDeletion(transac models.Transacti
 		fmt.Sprintf("Are you sure you want to delete this transaction?\n\n%s - $%.2f\n%s", transac.Category, transac.Amount, transac.Description),
 		func(confirmed bool) {
 			if confirmed {
-				deleted := core.DeleteTransaction(0, transac.ID)
-				if deleted {
-					storage.SaveData()
+				deleted := core.DeleteTransaction(transac.ID)
+				if deleted == nil {
 					dialog.ShowInformation("Deleted", "Transaction deleted successfully", t.guiApp.GuiWindow)
 				} else {
 					dialog.ShowInformation("Error", "Could not delete this transaction", t.guiApp.GuiWindow)

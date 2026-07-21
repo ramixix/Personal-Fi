@@ -4,7 +4,6 @@ import (
 	"errors"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
 	"fmt"
 	"image/color"
@@ -55,11 +54,17 @@ func (g *GoalsScreen) Render() fyne.CanvasObject {
 func (g *GoalsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("🎯 Goals", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	activeGoals := len(core.GetActiveGoals())
-	completedGoals := len(core.GetCompletedGoals())
-	totalSaved := core.GetTotalGoalsSaved()
+	activeGoals := core.GetGoalsLength(models.StatusActive)
+	completedGoals := core.GetGoalsLength(models.StatusCompleted)
+	totalSaved := core.GetTotalGoalsAmountByCurrency()
 
-	statsLabel := widget.NewLabel(fmt.Sprintf("Active: %d  |  Completed: %d  |  Total Saved: %.2f", activeGoals, completedGoals, totalSaved))
+	var statuText strings.Builder
+	statuText.WriteString(fmt.Sprintf("Active: %d  |  Completed: %d\n", activeGoals, completedGoals))
+	for currency, total := range totalSaved {
+		statuText.WriteString(fmt.Sprintf("Total Saved in %s: %s", currency, utils.FormatCurrency(total, currency)))
+	}
+
+	statsLabel := widget.NewLabel(strings.TrimSpace(statuText.String()))
 
 	createBtn := widget.NewButton("➕ New Goal", func() { g.showCreateGoalDialog() })
 	createBtn.Importance = widget.HighImportance
@@ -103,10 +108,14 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 		return nil
 	}
 
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+	currencySelect.SetSelected("USD ($)")
+
 	categorySelect := widget.NewSelect([]string{"savings", "debt", "investment", "purchase", "other"}, nil)
 	categorySelect.SetSelected("savings")
 
-	prioritySelect := widget.NewSelect([]string{"high", "medium", "low"}, nil)
+	prioritySelect := widget.NewSelect([]string{string(models.HighPriority), string(models.MediumPriority), string(models.LowPriority)}, nil)
 	prioritySelect.SetSelected("medium")
 
 	hasDeadlineCheck := widget.NewCheck("Set a deadline", nil)
@@ -134,6 +143,7 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 		widget.NewFormItem("Name", nameEntry),
 		widget.NewFormItem("Description", descriptionEntry),
 		widget.NewFormItem("Target Amount", targetAmountEntry),
+		widget.NewFormItem("Currency", currencySelect),
 		widget.NewFormItem("Category", categorySelect),
 		widget.NewFormItem("Priority", prioritySelect),
 		widget.NewFormItem("", hasDeadlineCheck),
@@ -152,17 +162,24 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 			return
 		}
 
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), g.guiApp.GuiWindow)
+			return
+		}
+
 		var deadline time.Time
 		if hasDeadlineCheck.Checked {
 			deadline, _ = utils.ParseDate(dealineEntry.Text)
 		}
 
+		selectedCurrencyCode := currencySelect.Selected[:3]
 		newGoal := models.Goal{
-			ID:            storage.NextGoalID,
+			ID:            utils.MustGenerateUUID(),
 			Name:          nameEntry.Text,
 			Description:   descriptionEntry.Text,
 			TargetAmount:  amount,
 			CurrentAmount: 0,
+			CurrencyCode:  selectedCurrencyCode,
 			HasDeadline:   hasDeadlineCheck.Checked,
 			Deadline:      deadline,
 			Category:      categorySelect.Selected,
@@ -171,7 +188,6 @@ func (g *GoalsScreen) showCreateGoalDialog() {
 			Created:       time.Now(),
 		}
 		core.AddGoal(newGoal)
-		storage.SaveData()
 
 		dialog.ShowInformation("Success", "Goal created successfully! 🎯", g.guiApp.GuiWindow)
 		g.guiApp.ShowGoalsScreen()
@@ -220,11 +236,11 @@ func (g *GoalsScreen) createActiveGoalSection() fyne.CanvasObject {
 func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 	priorityIcon := "🔵"
 	switch goal.Priority {
-	case "high":
+	case string(models.HighPriority):
 		priorityIcon = "🔴 (High Priority)"
-	case "medium":
+	case string(models.MediumPriority):
 		priorityIcon = "🟡 (Medium Priority)"
-	case "low":
+	case string(models.LowPriority):
 		priorityIcon = "🟢 (Low Priority)"
 	}
 
@@ -240,7 +256,9 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 
 	progressBar := g.createProgressBar(progress)
 
-	amountLabel := widget.NewLabel(fmt.Sprintf("$%.2f / $%.2f", goal.CurrentAmount, goal.TargetAmount))
+	amountLabel := widget.NewLabel(fmt.Sprintf("%s / %s",
+		utils.FormatCurrency(goal.CurrentAmount, goal.CurrencyCode),
+		utils.FormatCurrency(goal.TargetAmount, goal.CurrencyCode)))
 
 	var deadlineLabel *widget.Label
 	var monthlyRequiredContribution *widget.Label
@@ -254,7 +272,7 @@ func (g *GoalsScreen) createGoalCard(goal models.Goal) fyne.CanvasObject {
 
 		requiredContribution := core.GetRequiredMonthlyContribution(goal)
 		if requiredContribution > 0 {
-			monthlyRequiredContribution = widget.NewLabel(fmt.Sprintf("💡 Need $%.2f/month to meet deadline", requiredContribution))
+			monthlyRequiredContribution = widget.NewLabel(fmt.Sprintf("💡 Need %.2f/month to meet deadline", requiredContribution))
 		}
 	}
 
@@ -381,7 +399,7 @@ func (g *GoalsScreen) createCompletedGoalCard(goal models.Goal) fyne.CanvasObjec
 	nameLabel := widget.NewLabelWithStyle(fmt.Sprintf("🏆 %s", goal.Name), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
 	infoLabel := widget.NewLabel(
-		fmt.Sprintf("Completed: %s | Amount: %.2f", goal.CompletedDate.Format("Jan 02, 2006"), goal.CurrentAmount))
+		fmt.Sprintf("Completed: %s | Amount: %s", goal.CompletedDate.Format("Jan 02, 2006"), utils.FormatCurrency(goal.CurrentAmount, goal.CurrencyCode)))
 
 	viewBtn := widget.NewButton("View Details", func() { g.showGoalDetails(goal) })
 	deleteBtn := widget.NewButton("Delete", func() { g.showDeleteGoalDialog(goal) })
@@ -437,13 +455,12 @@ func (g *GoalsScreen) showContributeDialog(goal models.Goal) {
 				dialog.ShowError(errors.New("failed to add contribution"), g.guiApp.GuiWindow)
 				return
 			}
-			storage.SaveData()
 
 			updatedGoal := core.FindGoal(goal.ID)
 			if updatedGoal != nil && updatedGoal.Status == "complete" {
 				g.showGoalCompletedCelebration(updatedGoal)
 			} else {
-				dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 🎉", amount, goal.Name), g.guiApp.GuiWindow)
+				dialog.ShowInformation("Success", fmt.Sprintf("Added %.2f(%s) to %s! 🎉", amount, goal.CurrencyCode, goal.Name), g.guiApp.GuiWindow)
 			}
 			g.guiApp.ShowGoalsScreen()
 		}, g.guiApp.GuiWindow)
@@ -474,8 +491,8 @@ func (g *GoalsScreen) showGoalCompletedCelebration(goal *models.Goal) {
 //
 // ---------------------------------
 func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
-	details := fmt.Sprintf("Goal Name: %s\nStatus: %s\nCategory: %s\nPriority: %s\n\nProgress: %.1f%%\nCurrent Amount: %.2f\nTarget Amount: %.2f, Reamining: %.2f",
-		goal.Name, goal.Status, goal.Category, goal.Priority, core.GetGoalProgress(goal), goal.CurrentAmount, goal.TargetAmount, goal.TargetAmount-goal.CurrentAmount)
+	details := fmt.Sprintf("Goal Name: %s\nStatus: %s\nCategory: %s\nPriority: %s\n\nProgress: %.1f%%\nCurrent Amount: %.2f\nTarget Amount: %.2f,\n Currency: %s\nReamining: %.2f",
+		goal.Name, goal.Status, goal.Category, goal.Priority, core.GetGoalProgress(goal), goal.CurrentAmount, goal.TargetAmount, goal.CurrencyCode, goal.TargetAmount-goal.CurrentAmount)
 
 	if goal.Description != "" {
 		details += fmt.Sprintf("\nDescription: %s\n", goal.Description)
@@ -491,21 +508,17 @@ func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
 
 	details += fmt.Sprintf("\nCreated: %s\n", goal.Created.Format("Jan 02, 2006"))
 
-	if goal.Status == "completed" {
+	if goal.Status == string(models.StatusCompleted) {
 		details += fmt.Sprintf("Completed: %s\n", goal.CompletedDate.Format("Jan 02, 2006"))
 	}
 
-	contributionslist := core.GetGoalContributions(goal.ID)
+	contributionslist := core.GetSpecificGoalContributions(goal.ID)
 	contributionCount := len(contributionslist)
 	if contributionCount > 0 {
 		details += fmt.Sprintf("\n--- Recent Contributions (%d total) ---\n", contributionCount)
 		recent := 10
-		endIndex := 0
-		if contributionCount > recent {
-			endIndex = contributionCount - recent
-		}
-		for i := contributionCount - 1; i >= endIndex; i-- {
-			details += fmt.Sprintf("%s: +$%.2f - %s\n", contributionslist[i].Date.Format("Jan 02, 2006"),
+		for i := 0; i < recent; i++ {
+			details += fmt.Sprintf("%s: +%.2f - %s\n", contributionslist[i].Date.Format("Jan 02, 2006"),
 				contributionslist[i].Amount,
 				contributionslist[i].Note)
 		}
@@ -553,10 +566,18 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		return nil
 	}
 
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+	currentSelection := goal.CurrencyCode
+	if symbol, exists := utils.CurrencySymbols[goal.CurrencyCode]; exists && symbol != "" {
+		currentSelection = fmt.Sprintf("%s (%s)", goal.CurrencyCode, symbol)
+	}
+	currencySelect.SetSelected(currentSelection)
+
 	categorySelect := widget.NewSelect([]string{"savings", "debt", "investment", "purchase", "other"}, nil)
 	categorySelect.SetSelected(goal.Category)
 
-	prioritySelect := widget.NewSelect([]string{"high", "medium", "low"}, nil)
+	prioritySelect := widget.NewSelect([]string{string(models.HighPriority), string(models.MediumPriority), string(models.LowPriority)}, nil)
 	prioritySelect.SetSelected(goal.Priority)
 
 	hasDeadlineCheck := widget.NewCheck("Set a deadline", nil)
@@ -587,6 +608,7 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		widget.NewFormItem("Name", nameEntry),
 		widget.NewFormItem("Description", descriptionEntry),
 		widget.NewFormItem("Target Amount", targetAmountEntry),
+		widget.NewFormItem("Currency", currencySelect),
 		widget.NewFormItem("Category", categorySelect),
 		widget.NewFormItem("Priority", prioritySelect),
 		widget.NewFormItem("", hasDeadlineCheck),
@@ -605,6 +627,11 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 			return
 		}
 
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), g.guiApp.GuiWindow)
+			return
+		}
+
 		var deadline time.Time
 		if hasDeadlineCheck.Checked {
 			deadline, _ = utils.ParseDate(dealineEntry.Text)
@@ -614,6 +641,7 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		goalPointer.Name = nameEntry.Text
 		goalPointer.Description = descriptionEntry.Text
 		goalPointer.TargetAmount = amount
+		goalPointer.CurrencyCode = currencySelect.Selected[:3]
 		if hasDeadlineCheck.Checked {
 			goalPointer.HasDeadline = hasDeadlineCheck.Checked
 			goalPointer.Deadline = deadline
@@ -623,7 +651,12 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		if goalPointer.CurrentAmount > amount {
 			goalPointer.Status = "complete"
 		}
-		storage.SaveData()
+
+		err = core.UpdateGoal(*goalPointer)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Could not update goal"), g.guiApp.GuiWindow)
+			return
+		}
 
 		dialog.ShowInformation("Success", "Goal edited successfully! 🎯", g.guiApp.GuiWindow)
 		g.guiApp.ShowGoalsScreen()
@@ -645,10 +678,9 @@ func (g *GoalsScreen) showDeleteGoalDialog(goal models.Goal) {
 			if !confirmed {
 				return
 			}
-			deleted := core.DeleteGoal(goal.ID)
-			if deleted {
+			err := core.DeleteGoal(goal.ID)
+			if err == nil {
 				dialog.ShowInformation("Successfull", "Goal has been deleted successfully", g.guiApp.GuiWindow)
-				storage.SaveData()
 			} else {
 				dialog.ShowError(fmt.Errorf("Could not remove selected goal"), g.guiApp.GuiWindow)
 			}

@@ -6,6 +6,8 @@ import (
 	"fyne.io/fyne/v2/container"
 )
 
+const recent100 = 100
+
 type GuiApp struct {
 	application fyne.App
 	GuiWindow   fyne.Window

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
+	"financial_tracker/internal/utils"
 	"fmt"
 	"strconv"
 	"strings"
@@ -46,10 +46,13 @@ func (a *AccountsScreen) Render() fyne.CanvasObject {
 func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("🏦 Accounts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	accountCount := len(storage.Accounts)
-	accountTotals := core.GetTotalAccountBalance()
-
-	statsLabel := widget.NewLabel(fmt.Sprintf("Total Accounts: %d | Total Balance: %.2f", accountCount, accountTotals))
+	accountCount := core.GetAccountsLength()
+	accountTotals := core.GetTotalAccountsBalanceByCurrency()
+	statusText := fmt.Sprintf("Total Accounts: %d\n", accountCount)
+	for currency, total := range accountTotals {
+		statusText += fmt.Sprintf("Total Balance in %s: %s\n", currency, utils.FormatCurrency(total, currency))
+	}
+	statsLabel := widget.NewLabel(statusText)
 
 	addNewAccountBtn := widget.NewButton("Add new account", func() { a.showCreateAccountDialog() })
 	addNewAccountBtn.Importance = widget.HighImportance
@@ -64,17 +67,20 @@ func (a *AccountsScreen) createHeader() fyne.CanvasObject {
 //
 // --------------------------------------------------
 func (a *AccountsScreen) createAccountsGrid() fyne.CanvasObject {
-	if len(storage.Accounts) == 0 {
+	accountsCount := core.GetAccountsLength()
+	if accountsCount == 0 {
 		return a.createEmptyState()
 	}
 
+	title := widget.NewLabelWithStyle("Recent 100 Accounts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	var cards []fyne.CanvasObject
-	for _, acc := range storage.Accounts {
+	for _, acc := range core.GetRecentAccounts(recent100) {
 		card := a.createAccountCard(acc)
 		cards = append(cards, card)
 	}
 
-	return container.NewGridWithColumns(2, cards...)
+	recentAccounts := container.NewGridWithColumns(2, cards...)
+	return container.NewVBox(title, recentAccounts)
 }
 
 // ---------------------------
@@ -84,10 +90,10 @@ func (a *AccountsScreen) createAccountsGrid() fyne.CanvasObject {
 // ---------------------------
 func (a *AccountsScreen) createAccountCard(account models.Account) fyne.CanvasObject {
 	nameLabel := widget.NewLabelWithStyle(account.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	balanceLabel := widget.NewLabelWithStyle(fmt.Sprintf("%.2f", account.Balance), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	balanceLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s", utils.FormatCurrency(account.Balance, account.CurrencyCode)), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	createdTimeLabel := widget.NewLabel(fmt.Sprintf("Created: %s", account.Created.Format("Jan 02, 2006")))
 
-	AccountTransactionCount := len(core.GetAccountTransactions(account.ID))
+	AccountTransactionCount := core.GetAccountsTransactionsLength()
 	AccountTransactionCountLabel := widget.NewLabel(fmt.Sprintf("%d Number of Account Transactions", AccountTransactionCount))
 
 	// Buttons
@@ -150,8 +156,13 @@ func (a *AccountsScreen) showCreateAccountDialog() {
 		return nil
 	}
 
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+	currencySelect.SetSelected("USD ($)")
+
 	formItems := []*widget.FormItem{
 		widget.NewFormItem("Account Name", nameEntry),
+		widget.NewFormItem("Currency", currencySelect),
 	}
 
 	createAccountDialog := dialog.NewForm("Create Account", "Create", "Cancel", formItems, func(confirmed bool) {
@@ -163,12 +174,18 @@ func (a *AccountsScreen) showCreateAccountDialog() {
 			dialog.ShowError(fmt.Errorf("Not a valid account name. Must at least contains 2 characters."), a.guiApp.GuiWindow)
 			return
 		}
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), a.guiApp.GuiWindow)
+			return
+		}
 
-		newAccount := models.Account{ID: storage.NextAccountID, Name: nameEntry.Text, Balance: 0, Created: time.Now()}
+		// 3. Extract ONLY the 3-letter code for the database (e.g., "USD ($)" -> "USD")
+		selectedCurrencyCode := currencySelect.Selected[:3]
+
+		newAccount := models.Account{Name: nameEntry.Text, Balance: 0, CurrencyCode: selectedCurrencyCode, Created: time.Now()}
 		core.AddAccount(newAccount)
-		storage.SaveData()
 
-		dialog.ShowInformation("Success", fmt.Sprintf("Account '%s' created! 🎉", newAccount.Name), a.guiApp.GuiWindow)
+		dialog.ShowInformation("Success", fmt.Sprintf("Account '%s' (%s) created! 🎉", newAccount.Name, newAccount.CurrencyCode), a.guiApp.GuiWindow)
 		a.guiApp.ShowAccountsScreen()
 	},
 		a.guiApp.GuiWindow)
@@ -184,7 +201,7 @@ func (a *AccountsScreen) showCreateAccountDialog() {
 // -----------------------------------
 func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
 	amountEntry := widget.NewEntry()
-	amountEntry.SetPlaceHolder("0.0")
+	amountEntry.SetPlaceHolder(fmt.Sprintf("0.0"))
 	amountEntry.Validator = func(value string) error {
 		amount, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
 		if err != nil {
@@ -204,7 +221,7 @@ func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
 		widget.NewFormItem("Note", noteEntry),
 	}
 
-	addMoneyDialog := dialog.NewForm(fmt.Sprintf("Add Money to: %s", account.Name), "Add", "Cancel", addMoneyFormitems, func(confirmed bool) {
+	addMoneyDialog := dialog.NewForm(fmt.Sprintf("Add Money to: %s (%s)", account.Name, account.CurrencyCode), "Add", "Cancel", addMoneyFormitems, func(confirmed bool) {
 		if !confirmed {
 			return
 		}
@@ -215,11 +232,9 @@ func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
 			return
 		}
 
-		accountPointer := core.FindAccount(account.ID)
-		core.AddMoneyToAccount(accountPointer, amount, noteEntry.Text)
-		storage.SaveData()
+		core.AddMoneyToAccount(account.ID, amount, noteEntry.Text)
 
-		dialog.ShowInformation("Success", fmt.Sprintf("Added $%.2f to %s! 💰", amount, account.Name), a.guiApp.GuiWindow)
+		dialog.ShowInformation("Success", fmt.Sprintf("Added %s to %s! 💰", utils.FormatCurrency(amount, account.CurrencyCode), account.Name), a.guiApp.GuiWindow)
 		a.guiApp.ShowAccountsScreen()
 	}, a.guiApp.GuiWindow)
 
@@ -233,18 +248,17 @@ func (a *AccountsScreen) addMoneyToAccountDialog(account models.Account) {
 //
 // ----------------------------------------------------------------------
 func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
-	accountTransactions := core.GetAccountTransactions(account.ID)
-
-	if len(accountTransactions) == 0 {
+	accountTransactions := core.GetOneAccountTransactions(account.ID)
+	transactionsCount := len(accountTransactions)
+	if transactionsCount == 0 {
 		dialog.ShowInformation(fmt.Sprintf("%s Account History", account.Name), "No transactions for this account yet!", a.guiApp.GuiWindow)
 		return
 	}
 
-	historyText := fmt.Sprintf("Account: %s\nCurrent Balance: $%.2f\n\n", account.Name, account.Balance)
+	historyText := fmt.Sprintf("Account: %s\nCurrent Balance: %s\n\n", account.Name, utils.FormatCurrency(account.Balance, account.CurrencyCode))
 	historyText += "--- Transaction History ---\n\n"
 
-	for i := len(accountTransactions) - 1; i >= 0; i-- {
-		accTransac := accountTransactions[i]
+	for _, accTransac := range accountTransactions {
 		historyText += fmt.Sprintf("Date: %s\nAmount: %.2f\nNote: %s\n\n", accTransac.Date.Format("02/01/2006 15:04:05"), accTransac.Amount, accTransac.Note)
 	}
 
@@ -252,10 +266,10 @@ func (a *AccountsScreen) showAccountHistoryDialog(account models.Account) {
 	scrollContainer := container.NewScroll(historyLabel)
 	scrollContainer.SetMinSize(fyne.NewSize(400, 300))
 
-	statsLabel := widget.NewLabel(fmt.Sprintf("\n--- Statistics ---\nTotal Contributions: %d\nTotal Added: $%.2f\nAverage: $%.2f",
-		len(accountTransactions),
+	statsLabel := widget.NewLabel(fmt.Sprintf("\n--- Statistics ---\nTotal Contributions: %d\nTotal Added: %.2f\nAverage: %.2f",
+		transactionsCount,
 		account.Balance,
-		account.Balance/float64(len(accountTransactions))))
+		account.Balance/float64(transactionsCount)))
 
 	bottomSection := container.NewVBox(
 		widget.NewSeparator(),
@@ -282,7 +296,19 @@ func (a *AccountsScreen) editAccountDialog(account models.Account) {
 		return nil
 	}
 
-	formItems := []*widget.FormItem{widget.NewFormItem("Account Name", nameEntry)}
+	formattedCurrencies := utils.GetFormattedCurrencyOptions()
+	currencySelect := widget.NewSelect(formattedCurrencies, func(value string) {})
+
+	currentSelection := account.CurrencyCode
+	if symbol, exists := utils.CurrencySymbols[account.CurrencyCode]; exists && symbol != "" {
+		currentSelection = fmt.Sprintf("%s (%s)", account.CurrencyCode, symbol)
+	}
+	currencySelect.SetSelected(currentSelection)
+
+	formItems := []*widget.FormItem{
+		widget.NewFormItem("Account Name", nameEntry),
+		widget.NewFormItem("Currency", currencySelect),
+	}
 
 	editDialog := dialog.NewForm("Edit Account", "Save", "Cancel", formItems, func(confirmed bool) {
 		if !confirmed {
@@ -294,12 +320,25 @@ func (a *AccountsScreen) editAccountDialog(account models.Account) {
 			return
 		}
 
-		if nameEntry.Text == "" {
+		if len(strings.TrimSpace(nameEntry.Text)) < 2 {
 			dialog.ShowError(fmt.Errorf("please enter a valid account name"), a.guiApp.GuiWindow)
 			return
 		}
+
+		if currencySelect.Selected == "" {
+			dialog.ShowError(fmt.Errorf("Please select a currency."), a.guiApp.GuiWindow)
+			return
+		}
+
 		accountPointer.Name = nameEntry.Text
-		storage.SaveData()
+		accountPointer.CurrencyCode = currencySelect.Selected[:3]
+
+		err := core.UpdateAccount(*accountPointer)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("Could not update account"), a.guiApp.GuiWindow)
+			return
+		}
+
 		dialog.ShowInformation("Success", "Account updated successfully!", a.guiApp.GuiWindow)
 		a.guiApp.ShowAccountsScreen()
 	},
@@ -315,19 +354,18 @@ func (a *AccountsScreen) editAccountDialog(account models.Account) {
 //
 // --------------------------------
 func (a *AccountsScreen) deleteAccountDialog(account models.Account) {
-	deleteDialog := dialog.NewConfirm(fmt.Sprintf("%s Account Deletion", account.Name),
+	deleteDialog := dialog.NewConfirm(fmt.Sprintf("%s (%s) Account Deletion", account.Name, account.CurrencyCode),
 		fmt.Sprintf("Are you sure you want to remove %s from account list. All transaction belonging to this account will be also deleted", account.Name),
 		func(confirmed bool) {
 			if !confirmed {
 				return
 			}
-			deleted := core.DeleteAccount(account.ID)
-			if !deleted {
+			err := core.DeleteAccount(account.ID)
+			if err != nil {
 				dialog.ShowError(fmt.Errorf("Could not delete account and related transactions"), a.guiApp.GuiWindow)
 				return
 			}
 			dialog.ShowInformation("Successful Deletion", "Account and related transaction are all deleted.", a.guiApp.GuiWindow)
-			storage.SaveData()
 			a.guiApp.ShowAccountsScreen()
 		},
 		a.guiApp.GuiWindow,

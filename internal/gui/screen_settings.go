@@ -1,11 +1,9 @@
 package gui
 
 import (
-	"financial_tracker/internal/models"
+	"financial_tracker/internal/core"
 	"financial_tracker/internal/storage"
 	"fmt"
-	"os"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -121,11 +119,11 @@ func (s *SettingsScreen) createDataManagementSection() fyne.CanvasObject {
 func (s *SettingsScreen) createStatisticsSection() fyne.CanvasObject {
 	sectionTitle := widget.NewLabelWithStyle("📊 Data Statistics", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	transactionsNum := len(storage.Transactions)
-	accountsNum := len(storage.Accounts)
-	accountsTransactionNum := len(storage.AccountTransactions)
-	goalsNum := len(storage.Goals)
-	goalContributionNum := len(storage.GoalContributions)
+	transactionsNum := core.GetTransactionsLength("")
+	accountsNum := core.GetAccountsLength()
+	accountsTransactionNum := core.GetAccountsTransactionsLength()
+	goalsNum := core.GetGoalsLength("")
+	goalContributionNum := core.GetGoalContributionsLength()
 
 	totalRecords := transactionsNum + accountsNum + accountsTransactionNum + goalsNum + goalContributionNum
 
@@ -134,7 +132,7 @@ func (s *SettingsScreen) createStatisticsSection() fyne.CanvasObject {
 		widget.NewLabel("Transactions"),
 		widget.NewLabel("Accounts"),
 		widget.NewLabel("Goals"),
-		widget.NewLabel("Account  Transactions"),
+		widget.NewLabel("Account Transactions"),
 		widget.NewLabel("Goal Contributions"),
 
 		widget.NewLabel(fmt.Sprintf("%d", totalRecords)),
@@ -240,25 +238,25 @@ func (s *SettingsScreen) createDangerZoneSection() fyne.CanvasObject {
 // create a timestamped backup
 // ------------------------------------
 func (s *SettingsScreen) createBackup() {
-	timeStamp := time.Now().Format("2006-01-02_15-04-05")
-	backupFile := fmt.Sprintf("financial_data_backup_%s.json", timeStamp)
+	// timeStamp := time.Now().Format("2006-01-02_15-04-05")
+	// backupFile := fmt.Sprintf("financial_data_backup_%s.json", timeStamp)
 
-	data, err := os.ReadFile(storage.DataFile)
-	if err != nil {
-		dialog.ShowError(fmt.Errorf("failed to read data file: %v", err), s.guiApp.GuiWindow)
-		return
-	}
+	// data, err := os.ReadFile(storage.DataFile)
+	// if err != nil {
+	// 	dialog.ShowError(fmt.Errorf("failed to read data file: %v", err), s.guiApp.GuiWindow)
+	// 	return
+	// }
 
-	err = os.WriteFile(backupFile, data, 0644)
-	if err != nil {
-		dialog.ShowError(fmt.Errorf("failed to create backup: %v", err), s.guiApp.GuiWindow)
-		return
-	}
+	// err = os.WriteFile(backupFile, data, 0644)
+	// if err != nil {
+	// 	dialog.ShowError(fmt.Errorf("failed to create backup: %v", err), s.guiApp.GuiWindow)
+	// 	return
+	// }
 
-	dialog.ShowInformation("Backup Created",
-		fmt.Sprintf("Backup created successfully!\n\nFile: %s\nSize: %.2f KB",
-			backupFile, float64(len(data))/1024),
-		s.guiApp.GuiWindow)
+	// dialog.ShowInformation("Backup Created",
+	// 	fmt.Sprintf("Backup created successfully!\n\nFile: %s\nSize: %.2f KB",
+	// 		backupFile, float64(len(data))/1024),
+	// 	s.guiApp.GuiWindow)
 }
 
 // -----------------------------------------
@@ -286,21 +284,21 @@ func (s *SettingsScreen) exportAllData() {
 	goalsCSVFile := "goals_export.csv"
 
 	// Export transactions
-	err := s.exportTransactionsCSV(transactionsCSVFile)
+	err := core.ExportTransactionsToCSV(transactionsCSVFile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("failed to export transactions: %v", err), s.guiApp.GuiWindow)
 		return
 	}
 
 	// Export accounts
-	err = s.exportAccountsCSV(accountsCSVFile)
+	err = core.ExportAccountsToCSV(accountsCSVFile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("failed to export accounts: %v", err), s.guiApp.GuiWindow)
 		return
 	}
 
 	// Export goals
-	err = s.exportGoalsCSV(goalsCSVFile)
+	err = core.ExportGoalsToCSV(goalsCSVFile)
 	if err != nil {
 		dialog.ShowError(fmt.Errorf("failed to export goals: %v", err), s.guiApp.GuiWindow)
 		return
@@ -310,179 +308,119 @@ func (s *SettingsScreen) exportAllData() {
 	dialog.ShowInformation("Export Complete", successMessage, s.guiApp.GuiWindow)
 }
 
-// ---------------------------------------------------------------
-// Helper funcitons to export Transactions, Accounts, and Goals
-// ---------------------------------------------------------------
-func (s *SettingsScreen) exportTransactionsCSV(exportedFileName string) error {
-	file, err := os.Create(exportedFileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Header
-	file.WriteString("ID,Date,Type,Amount,Category,Description")
-	// Write data
-	for _, transac := range storage.Transactions {
-		file.WriteString(fmt.Sprintf("%d,%s,%s,%.2f,%s,%s\n", transac.ID, transac.Date.Format("2006-01-02"), transac.Type, transac.Amount, transac.Category, transac.Description))
-	}
-	return nil
-}
-
-func (s *SettingsScreen) exportAccountsCSV(exportedFileName string) error {
-	file, err := os.Create(exportedFileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Write header
-	file.WriteString("ID,Name,Balance,Created\n")
-	// Write data
-	for _, acc := range storage.Accounts {
-		file.WriteString(fmt.Sprintf("%d,%s,%.2f,%s\n", acc.ID, acc.Name, acc.Balance, acc.Created.Format("2006-01-02")))
-	}
-	return nil
-}
-
-func (s *SettingsScreen) exportGoalsCSV(exportedFileName string) error {
-	file, err := os.Create(exportedFileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Write header
-	file.WriteString("ID,Name,TargetAmount,CurrentAmount,Status,Created\n")
-	// Write data
-	for _, goal := range storage.Goals {
-		file.WriteString(fmt.Sprintf("%d,%s,%.2f,%.2f,%s,%s\n",
-			goal.ID,
-			goal.Name,
-			goal.TargetAmount,
-			goal.CurrentAmount,
-			goal.Status,
-			goal.Created.Format("2006-01-02"),
-		))
-	}
-	return nil
-}
-
 // -----------------------------
 // Reloading data from file
 // -----------------------------
 func (s *SettingsScreen) reloadData() {
-	err := storage.LoadData()
-	if err != nil {
-		dialog.ShowError(fmt.Errorf("failed to reload data: %v", err), s.guiApp.GuiWindow)
-		return
-	}
+	// err := storage.LoadData()
+	// if err != nil {
+	// 	dialog.ShowError(fmt.Errorf("failed to reload data: %v", err), s.guiApp.GuiWindow)
+	// 	return
+	// }
 
-	dialog.ShowInformation("Data Reloaded", "Data reloaded successfully from disk!", s.guiApp.GuiWindow)
-	s.guiApp.ShowDashboardScreen()
+	// dialog.ShowInformation("Data Reloaded", "Data reloaded successfully from disk!", s.guiApp.GuiWindow)
+	// s.guiApp.ShowDashboardScreen()
 }
 
 // ----------------------------------------------------------
 // Ask for confirmation before clearing transactions
 // ----------------------------------------------------------
 func (s *SettingsScreen) confirmClearTransactions() {
-	dialog.ShowConfirm(
-		"Clear All Transactions",
-		fmt.Sprintf("Are you sure you want to delete ALL %d transactions?\n\nThis action cannot be undone!", len(storage.Transactions)),
-		func(confirmed bool) {
-			if confirmed {
-				storage.Transactions = []models.Transaction{}
-				storage.NextTransactionID = 1
-				storage.SaveData()
-				dialog.ShowInformation("Cleared", "All transactions have been deleted", s.guiApp.GuiWindow)
-				s.guiApp.ShowSettingsScreen()
-			}
-		},
-		s.guiApp.GuiWindow)
+	// dialog.ShowConfirm(
+	// 	"Clear All Transactions",
+	// 	fmt.Sprintf("Are you sure you want to delete ALL %d transactions?\n\nThis action cannot be undone!", len(storage.Transactions)),
+	// 	func(confirmed bool) {
+	// 		if confirmed {
+	// 			storage.Transactions = []models.Transaction{}
+	// 			dialog.ShowInformation("Cleared", "All transactions have been deleted", s.guiApp.GuiWindow)
+	// 			s.guiApp.ShowSettingsScreen()
+	// 		}
+	// 	},
+	// 	s.guiApp.GuiWindow)
 }
 
 // ---------------------------------------------------
 // Ask for confirmation before clearing all data
 // ---------------------------------------------------
 func (s *SettingsScreen) confirmClearAllData() {
-	confirmationMessage := fmt.Sprintf(
-		"WARNING: You are about to delete ALL data!\n\n"+
-			"This includes:\n"+
-			"- %d Transactions\n"+
-			"- %d Accounts\n"+
-			"- %d Goals\n"+
-			"- All contribution history\n\n"+
-			"This action CANNOT be undone!\n\n"+
-			"Are you absolutely sure?",
-		len(storage.Transactions),
-		len(storage.Accounts),
-		len(storage.Goals),
-	)
+	// confirmationMessage := fmt.Sprintf(
+	// 	"WARNING: You are about to delete ALL data!\n\n"+
+	// 		"This includes:\n"+
+	// 		"- %d Transactions\n"+
+	// 		"- %d Accounts\n"+
+	// 		"- %d Goals\n"+
+	// 		"- All contribution history\n\n"+
+	// 		"This action CANNOT be undone!\n\n"+
+	// 		"Are you absolutely sure?",
+	// 	len(storage.Transactions),
+	// 	len(storage.Accounts),
+	// 	len(storage.Goals),
+	// )
 
-	dialog.ShowConfirm(
-		"⚠️ Clear ALL Data",
-		confirmationMessage,
-		func(confirmed bool) {
-			if confirmed {
-				// Double confirmation
-				dialog.ShowConfirm(
-					"Final Confirmation",
-					"This is your last chance!\n\nDelete all data permanently?",
-					func(reallyConfirmed bool) {
-						if reallyConfirmed {
-							s.clearAllData()
-						}
-					},
-					s.guiApp.GuiWindow,
-				)
-			}
-		},
-		s.guiApp.GuiWindow,
-	)
+	// dialog.ShowConfirm(
+	// 	"⚠️ Clear ALL Data",
+	// 	confirmationMessage,
+	// 	func(confirmed bool) {
+	// 		if confirmed {
+	// 			// Double confirmation
+	// 			dialog.ShowConfirm(
+	// 				"Final Confirmation",
+	// 				"This is your last chance!\n\nDelete all data permanently?",
+	// 				func(reallyConfirmed bool) {
+	// 					if reallyConfirmed {
+	// 						s.clearAllData()
+	// 					}
+	// 				},
+	// 				s.guiApp.GuiWindow,
+	// 			)
+	// 		}
+	// 	},
+	// 	s.guiApp.GuiWindow,
+	// )
 }
 
 // --------------------------------
 // clear all application data
 // --------------------------------
 func (s *SettingsScreen) clearAllData() {
-	storage.Transactions = []models.Transaction{}
-	storage.Accounts = []models.Account{}
-	storage.Goals = []models.Goal{}
-	storage.AccountTransactions = []models.AccountTransaction{}
-	storage.GoalContributions = []models.GoalContribution{}
+	// storage.Transactions = []models.Transaction{}
+	// storage.Accounts = []models.Account{}
+	// storage.Goals = []models.Goal{}
+	// storage.AccountTransactions = []models.AccountTransaction{}
+	// storage.GoalContributions = []models.GoalContribution{}
 
-	storage.NextTransactionID = 1
-	storage.NextAccountID = 1
-	storage.NextGoalID = 1
-	storage.NextAccountTransactionID = 1
-	storage.NextGoalContributionID = 1
+	// storage.NextTransactionID = 1
+	// storage.NextAccountID = 1
+	// storage.NextGoalID = 1
+	// storage.NextAccountTransactionID = 1
+	// storage.NextGoalContributionID = 1
 
-	storage.SaveData()
+	// storage.SaveData()
 
-	dialog.ShowInformation("All Data Cleared", "All application data has been permanently deleted", s.guiApp.GuiWindow)
-	s.guiApp.ShowDashboardScreen()
+	// dialog.ShowInformation("All Data Cleared", "All application data has been permanently deleted", s.guiApp.GuiWindow)
+	// s.guiApp.ShowDashboardScreen()
 }
 
 // -------------------------------------------------------
 // Ask for confirmation before deleting data file
 // -------------------------------------------------------
 func (s *SettingsScreen) confirmDeleteDataFile() {
-	dialog.ShowConfirm(
-		"Delete Data File",
-		"This will delete the data file from disk.\nThe application will start fresh next time.\n\nContinue?",
-		func(confirmed bool) {
-			if confirmed {
-				err := os.Remove(storage.DataFile)
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("failed to delete file: %v", err), s.guiApp.GuiWindow)
-					return
-				}
+	// dialog.ShowConfirm(
+	// 	"Delete Data File",
+	// 	"This will delete the data file from disk.\nThe application will start fresh next time.\n\nContinue?",
+	// 	func(confirmed bool) {
+	// 		if confirmed {
+	// 			err := os.Remove(storage.DataFile)
+	// 			if err != nil {
+	// 				dialog.ShowError(fmt.Errorf("failed to delete file: %v", err), s.guiApp.GuiWindow)
+	// 				return
+	// 			}
 
-				dialog.ShowInformation("File Deleted", "Data file deleted successfully.\nThe application will restart with empty data.", s.guiApp.GuiWindow)
-				// Clear in-memory data too
-				s.clearAllData()
-			}
-		},
-		s.guiApp.GuiWindow,
-	)
+	// 			dialog.ShowInformation("File Deleted", "Data file deleted successfully.\nThe application will restart with empty data.", s.guiApp.GuiWindow)
+	// 			// Clear in-memory data too
+	// 			s.clearAllData()
+	// 		}
+	// 	},
+	// 	s.guiApp.GuiWindow,
+	// )
 }

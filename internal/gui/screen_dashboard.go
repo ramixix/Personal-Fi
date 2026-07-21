@@ -2,10 +2,12 @@ package gui
 
 import (
 	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
+	"financial_tracker/internal/utils"
 	"fmt"
+	"strings"
 
 	// "financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -46,41 +48,56 @@ func (d *DashboardScreen) Render() fyne.CanvasObject {
 
 func (d *DashboardScreen) createSummaryCards() fyne.CanvasObject {
 	// total number of transactions so far + number of accounts + balance across all acounts
-	transactionsCount := fmt.Sprintf("%d total transaction", len(storage.Transactions))
-	accountsCount := fmt.Sprintf("%d accounts", len(storage.Accounts))
-	totalAccounts := fmt.Sprintf("$%.2f total balance across acounts", core.GetTotalAccountBalance())
+	transactionsCount := fmt.Sprintf("%d total transaction", core.GetTransactionsLength(""))
+	accountsCount := fmt.Sprintf("%d accounts", core.GetAccountsLength())
+
+	accountTotalsMap := core.GetTotalAccountsBalanceByCurrency()
+	var accountTotals strings.Builder
+	for currency, total := range accountTotalsMap {
+		accountTotals.WriteString(fmt.Sprintf("%s: %s\n", currency, utils.FormatCurrency(total, currency)))
+	}
 
 	// total number of goals + only active ones
-	goalsCount := fmt.Sprintf("%d goals", len(storage.Goals))
-	activeGoals := fmt.Sprintf("%d active goasl", len(core.GetActiveGoals()))
+	goalsCount := fmt.Sprintf("%d goals", core.GetGoalsLength(""))
+	activeGoals := fmt.Sprintf("%d active goals", core.GetGoalsLength(models.StatusActive))
 
 	// total income + total expense + net value
-	totalIncome, totalExpenses := core.CalculateTotals()
-	netWorth := totalIncome - totalExpenses
-
-	totalIncomeText := fmt.Sprintf("$%.2f", totalIncome)
-	totalExpensesText := fmt.Sprintf("$%.2f", totalExpenses)
-	// if netWorth >0 then + otherwise -
-	netWorthText := ""
-	if netWorth > 0 {
-		netWorthText = "+ "
+	totalsMap, err := core.CalculateTotalsByCurrency()
+	if err != nil {
+		fmt.Println("Error fetching totals:", err)
 	}
-	netWorthText += fmt.Sprintf("%.2f", netWorth)
 
+	var incomeStr, expensesStr, netWorthStr strings.Builder
+	if len(totalsMap) == 0 {
+		incomeStr.WriteString("0.00")
+		expensesStr.WriteString("0.00")
+		netWorthStr.WriteString("0.00")
+	} else {
+		for currency, data := range totalsMap {
+			netWorth := data.Income - data.Expenses
+
+			// Format sign for Net Worth
+			sign := ""
+			if netWorth > 0 {
+				sign = "+ "
+			}
+
+			// Append to our strings (e.g., "USD: 5000.00\n")
+			incomeStr.WriteString(fmt.Sprintf("%s: %.2f\n", currency, data.Income))
+			expensesStr.WriteString(fmt.Sprintf("%s: %.2f\n", currency, data.Expenses))
+			netWorthStr.WriteString(fmt.Sprintf("%s: %s%.2f\n", currency, sign, netWorth))
+		}
+	}
 	// Average Montly Income/Expenses and Net of All time
 	// avgIncome, avgExpenses := core.GetMonthlyAverage()
 
-	// income card
-	incomeCard := widget.NewCard("💰 Total Income", "", widget.NewLabel(totalIncomeText))
-
-	// expenses card
-	expensesCard := widget.NewCard("💸 Total Expenses", "", widget.NewLabel(totalExpensesText))
-
-	// Net Worth Card
-	netWorthCard := widget.NewCard("📊 Net Worth", "", widget.NewLabel(netWorthText))
+	// trim is used to remove the last \n.
+	incomeCard := widget.NewCard("💰 Total Income", "", widget.NewLabel(strings.TrimSpace(incomeStr.String())))
+	expensesCard := widget.NewCard("💸 Total Expenses", "", widget.NewLabel(strings.TrimSpace(expensesStr.String())))
+	netWorthCard := widget.NewCard("📊 Net Worth", "", widget.NewLabel(strings.TrimSpace(netWorthStr.String())))
 
 	// Total Accounts balance card
-	accountsBalanceCard := widget.NewCard("🏦 Accounts Balance", "", widget.NewLabel(totalAccounts))
+	accountsBalanceCard := widget.NewCard("🏦 Accounts Balance", "", widget.NewLabel(accountTotals.String()))
 
 	// total Number of accounts
 	accoutNumCard := widget.NewCard("Accounts", "", widget.NewLabel(accountsCount))
@@ -109,7 +126,7 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Transaction & Goals", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	recentTransactions := core.GetRecentTransactions(5)
-	recentGoalContributions := core.GetRecentGoalContributions(5)
+	recentGoalContributions := core.GetRecentContributions(5)
 
 	var transacCards []fyne.CanvasObject
 	var goalContributionCards []fyne.CanvasObject
@@ -118,16 +135,15 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 		transacCards = append(transacCards, widget.NewLabel("No Transaction Found. Add Transaction First!"))
 
 	} else {
-		for i := len(recentTransactions) - 1; i >= 0; i-- {
-			transac := recentTransactions[i]
+		for _, transac := range recentTransactions {
 			typeIcon := "💰 ✅"
 			if transac.Type == "expense" {
 				typeIcon = "💸 🔴"
 			}
 
-			cardTitle := fmt.Sprintf("%s Transaction ID: %d ", typeIcon, transac.ID)
+			cardTitle := fmt.Sprintf("%s Transaction ID: %s ", typeIcon, transac.ID)
 			cardSubtitle := fmt.Sprintf("Category: %s\nType: %s\nNote: %s", transac.Category, transac.Type, transac.Description)
-			cardAmount := fmt.Sprintf("%.2f", transac.Amount)
+			cardAmount := fmt.Sprintf("%s", utils.FormatCurrency(transac.Amount, transac.CurrencyCode))
 			date := transac.Date.Format("Jan 02, 2006")
 
 			cardContent := container.NewVBox(
@@ -148,13 +164,12 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 		goalContributionCards = append(goalContributionCards, widget.NewLabel("No Goal Contribution Yet. Add Contirbution First!"))
 	} else {
 
-		for i := len(recentGoalContributions) - 1; i >= 0; i-- {
-			contribution := recentGoalContributions[i]
+		for _, contribution := range recentGoalContributions {
 			goal := core.FindGoal(contribution.GoalID)
 
 			cardTitle := fmt.Sprintf("Contribution ID %d\nContributed To Goal: %s", contribution.ID, goal.Name)
 			cardSubtitle := fmt.Sprintf("Note: %s", contribution.Note)
-			cardAmount := fmt.Sprintf("Amount: %.2f", contribution.Amount)
+			cardAmount := fmt.Sprintf("Amount: %s", utils.FormatCurrency(contribution.Amount, goal.CurrencyCode))
 			cardDate := contribution.Date.Format("Jan 02, 2006")
 
 			cardContent := container.NewVBox(
