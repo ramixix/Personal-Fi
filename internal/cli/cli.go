@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+const recent100 = 100
+
 // Run starts the CLI application
 func Run() {
 	fmt.Println("=== Personal Financial Tracker ===")

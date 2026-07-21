@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
@@ -26,7 +25,6 @@ func handleReports() {
 		fmt.Println("  yearly        Yearly financial reports")
 		fmt.Println("  category      Category breakdown analysis")
 		fmt.Println("  compare       Compare two time periods")
-		fmt.Println("  trends        Analyze spending trends by category")
 		fmt.Println("  anomalies     Detect unusual spending")
 		return
 	}
@@ -43,8 +41,6 @@ func handleReports() {
 		handleCategoryReport()
 	case "compare":
 		handleComparisonReport()
-	case "trends":
-		handleTrendsReport()
 	case "anomalies":
 		handleAnomaliesReport()
 	default:
@@ -53,254 +49,296 @@ func handleReports() {
 	}
 }
 
-// Handle monthly report
+// handleMonthlyReport prints monthly reports
 func handleMonthlyReport() {
 	fmt.Println("Monthly Financial Reports")
 	fmt.Println("=========================")
 
-	if len(storage.Transactions) == 0 {
-		fmt.Println("No transactions available.")
-		return
-	}
+	reportsMap := core.GetTransactionsMonthlyReports()
 
-	var reports []models.MonthlyReport = core.GetMonthlyReports()
-
-	if len(reports) == 0 {
+	if len(reportsMap) == 0 {
 		fmt.Println("No monthly data available.")
 		return
 	}
 
-	fmt.Printf("\n%-15s | %-12s | %-12s | %-12s | %s\n", "Month", "Income", "Expenses", "Net", "Transactions")
-	fmt.Println(strings.Repeat("-", 80))
-
-	bestMonth := reports[0]
-	worstMonth := reports[0]
-	var totalIncome, totalExpenses, totalNet float64
-	var totalTx int
-
-	for _, report := range reports {
-		netSymbol := ""
-		if report.Net >= 0 {
-			netSymbol = "+"
+	for currency, reports := range reportsMap {
+		if len(reports) == 0 {
+			continue
 		}
-		fmt.Printf("%-15s | $%-11.2f | $%-11.2f | %s$%-11.2f | %d\n",
-			fmt.Sprintf("%s %d", report.Month.String()[:3], report.Year),
-			report.Income,
-			report.Expenses,
-			netSymbol,
-			report.Net,
-			report.TxCount)
 
-		totalIncome += report.Income
-		totalExpenses += report.Expenses
-		totalNet += report.Net
-		totalTx += report.TxCount
+		fmt.Printf("\n=== %s REPORT ===\n", currency)
+		fmt.Printf("%-15s | %-12s | %-12s | %-12s | %s\n", "Month", "Income", "Expenses", "Net", "Transactions")
+		fmt.Println(strings.Repeat("-", 80))
 
-		// Find best and worst months. Maximum and Minimum Net among months
-		if report.Net > bestMonth.Net {
-			bestMonth = report
-		} else if report.Net < worstMonth.Net {
-			worstMonth = report
+		bestMonth := reports[0]
+		worstMonth := reports[0]
+
+		var totalIncome, totalExpenses, totalNet float64
+		var totalTx int
+
+		for _, report := range reports {
+			netSymbol := ""
+			if report.Net >= 0 {
+				netSymbol = "+"
+			}
+			fmt.Printf("%-15s | %-11s | %-11s | %s%-11s | %d\n",
+				fmt.Sprintf("%s %d", report.Month.String()[:3], report.Year),
+				utils.FormatCurrency(report.Income, currency),
+				utils.FormatCurrency(report.Expenses, currency),
+				netSymbol,
+				utils.FormatCurrency(report.Net, currency),
+				report.TxCount)
+
+			totalIncome += report.Income
+			totalExpenses += report.Expenses
+			totalNet += report.Net
+			totalTx += report.TxCount
+
+			if report.Net > bestMonth.Net {
+				bestMonth = report
+			} else if report.Net < worstMonth.Net {
+				worstMonth = report
+			}
 		}
+
+		fmt.Println(strings.Repeat("-", 80))
+		fmt.Printf("%-15s | %-11s | %-11s | %-11s | %d\n", "TOTAL",
+			utils.FormatCurrency(totalIncome, currency),
+			utils.FormatCurrency(totalExpenses, currency),
+			utils.FormatCurrency(totalNet, currency),
+			totalTx)
+
+		avgIncome := totalIncome / float64(len(reports))
+		avgExpenses := totalExpenses / float64(len(reports))
+		avgNet := totalNet / float64(len(reports))
+
+		fmt.Printf("\n%-15s | %-11s | %-11s | %-11s\n", "AVERAGE",
+			utils.FormatCurrency(avgIncome, currency),
+			utils.FormatCurrency(avgExpenses, currency),
+			utils.FormatCurrency(avgNet, currency))
+
+		fmt.Printf("\n--- %s Insights ---\n", currency)
+		fmt.Printf("Best Month:  %s %d (%.2f net)\n", bestMonth.Month.String(), bestMonth.Year, bestMonth.Net)
+		fmt.Printf("Worst Month: %s %d (%.2f net)\n", worstMonth.Month.String(), worstMonth.Year, worstMonth.Net)
+		fmt.Println()
 	}
-
-	fmt.Println(strings.Repeat("-", 80))
-	fmt.Printf("%-15s | $%-11.2f | $%-11.2f | $%-11.2f | %d\n", "TOTAL", totalIncome, totalExpenses, totalNet, totalTx)
-
-	// Calculate averages
-	avgIncome := totalIncome / float64(len(reports))
-	avgExpenses := totalExpenses / float64(len(reports))
-	avgNet := totalNet / float64(len(reports))
-
-	fmt.Printf("\n%-15s | $%-11.2f | $%-11.2f | $%-11.2f\n", "AVERAGE", avgIncome, avgExpenses, avgNet)
-
-	fmt.Printf("\n--- Insights ---\n")
-	fmt.Printf("Best Month:  %s %d ($%.2f net)\n", bestMonth.Month.String(), bestMonth.Year, bestMonth.Net)
-	fmt.Printf("Worst Month: %s %d ($%.2f net)\n", worstMonth.Month.String(), worstMonth.Year, worstMonth.Net)
-
 }
 
-// Handle quarterly report
+// handleYearlyReport prints yearly reports
+func handleYearlyReport() {
+	fmt.Println("Yearly Financial Reports")
+	fmt.Println("========================")
+
+	reportsMap := core.GetTransactionsYearlyReports()
+	if len(reportsMap) == 0 {
+		fmt.Println("No monthly data available.")
+		return
+	}
+
+	for currency, reports := range reportsMap {
+		if len(reports) == 0 {
+			continue
+		}
+
+		fmt.Printf("\n=== %s REPORT ===\n", currency)
+		fmt.Printf("\n%-10s | %-12s | %-12s | %-12s | %s\n", "Year", "Income", "Expenses", "Net", "Transactions")
+		fmt.Println(strings.Repeat("-", 70))
+
+		var totalIncome, totalExpenses, totalNet float64
+		var totalTx int
+
+		for _, yearReport := range reports {
+			netSymbol := ""
+			if yearReport.Net >= 0 {
+				netSymbol = "+"
+			}
+
+			fmt.Printf("%-10d | %-11s | %-11s | %s%-11s | %d\n",
+				yearReport.Year,
+				utils.FormatCurrency(yearReport.Income, currency),
+				utils.FormatCurrency(yearReport.Expenses, currency),
+				netSymbol,
+				utils.FormatCurrency(yearReport.Net, currency),
+				yearReport.TxCount)
+
+			totalIncome += yearReport.Income
+			totalExpenses += yearReport.Expenses
+			totalNet += yearReport.Net
+			totalTx += yearReport.TxCount
+		}
+
+		fmt.Println(strings.Repeat("-", 70))
+		fmt.Printf("%-10s | %-11.2f | %-11.2f | %-11.2f | %d\n", "TOTAL",
+			utils.FormatCurrency(totalIncome, currency),
+			utils.FormatCurrency(totalExpenses, currency),
+			utils.FormatCurrency(totalNet, currency),
+			totalTx)
+
+		// Year-over-year growth
+		if len(reports) >= 2 {
+			fmt.Println("\n--- Year-over-Year Growth ---")
+			for y := 1; y < len(reports); y++ {
+				currentYear := reports[y]
+				previousYear := reports[y-1]
+				comparison := core.GetYearOverYearComparison(previousYear.Year, currentYear.Year)
+				for currency, report := range comparison {
+					fmt.Printf("  Income:   %.2f → %.2f (%+.1f%%)\n",
+						utils.FormatCurrency(report.Period1Income, currency),
+						utils.FormatCurrency(report.Period2Income, currency),
+						report.IncomePercent)
+					fmt.Printf("  Expenses: %.2f → %.2f (%+.1f%%)\n",
+						utils.FormatCurrency(report.Period1Expenses, currency),
+						utils.FormatCurrency(report.Period2Expenses, currency),
+						report.ExpensePercent)
+				}
+			}
+		}
+	}
+}
+
+// handleQuarterlyReport prints each quarter report for users given year
 func handleQuarterlyReport() {
 	fmt.Println("Quarterly Financial Reports")
 	fmt.Println("===========================")
 
 	reader := bufio.NewReader(os.Stdin)
 	year, err := utils.GetIntInput(reader, "Enter Year: ")
-	if err != nil {
+	if err != nil || len(strconv.Itoa(year)) != 4 {
 		fmt.Println("Invalid year!")
 		return
 	}
-
 	fmt.Printf("\nQuarterly Report for %d\n", year)
 	fmt.Println(strings.Repeat("=", 60))
-	fmt.Printf("\n%-10s | %-12s | %-12s | %-12s | %s\n", "Quarter", "Income", "Expenses", "Net", "Transactions")
-	fmt.Println(strings.Repeat("-", 70))
 
-	var totalIncome, totalExpenses, totalNet float64
-	var totalTx int
+	totalIncome := make(map[string]float64)
+	totalExpenses := make(map[string]float64)
+	totalTx := 0
 
 	for quarter := 1; quarter <= 4; quarter++ {
-		quarterReport := core.GetQuarterlyReport(year, quarter)
+		fmt.Printf("\n%-10s | %s | %-12s | %-12s | %-12s | %s\n", "Quarter", "Currency", "Income", "Expenses", "Net", "Transactions")
+		fmt.Println(strings.Repeat("-", 70))
+		quarterReport := core.GetTransactionsQuarterlyReport(year, quarter)
 
-		netSymbol := ""
-		if quarterReport.Net >= 0 {
-			netSymbol = "+"
+		for currency, quarterReport := range quarterReport {
+			netSymbol := ""
+			if quarterReport.Net >= 0 {
+				netSymbol = "+"
+			}
+			fmt.Printf("Q%-9d | %-5s | %-11s | %-11s | %s%-11s | %d\n",
+				quarter,
+				quarterReport.CurrencyCode,
+				utils.FormatCurrency(quarterReport.Income, currency),
+				utils.FormatCurrency(quarterReport.Expenses, currency),
+				netSymbol,
+				utils.FormatCurrency(quarterReport.Net, currency),
+				quarterReport.TxCount)
+
+			totalIncome[currency] += quarterReport.Income
+			totalExpenses[currency] += quarterReport.Expenses
+			totalTx += quarterReport.TxCount
 		}
-
-		fmt.Printf("Q%-9d | $%-11.2f | $%-11.2f | %s$%-11.2f | %d\n",
-			quarter,
-			quarterReport.Income,
-			quarterReport.Expenses,
-			netSymbol,
-			quarterReport.Net,
-			quarterReport.TxCount)
-
-		totalIncome += quarterReport.Income
-		totalExpenses += quarterReport.Expenses
-		totalNet += quarterReport.Net
-		totalTx += quarterReport.TxCount
 	}
 
-	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("%-10s | $%-11.2f | $%-11.2f | $%-11.2f | %d\n", "TOTAL", totalIncome, totalExpenses, totalNet, totalTx)
-}
-
-// Handle yearly report
-func handleYearlyReport() {
-	fmt.Println("Yearly Financial Reports")
-	fmt.Println("========================")
-
-	if len(storage.Transactions) == 0 {
-		fmt.Println("No transactions available.")
-		return
+	fmt.Printf("Totals (%d transactions of year %d)", totalTx, year)
+	for currency, total := range totalIncome {
+		fmt.Printf("Currency: %-5s | Total Income: %-12s\n", currency, utils.FormatCurrency(total, currency))
 	}
 
-	var yearData []models.MonthlyReport = core.GetYearlyReports()
-
-	fmt.Printf("\n%-10s | %-12s | %-12s | %-12s | %s\n", "Year", "Income", "Expenses", "Net", "Transactions")
-	fmt.Println(strings.Repeat("-", 70))
-
-	var totalIncome, totalExpenses, totalNet float64
-	var totalTx int
-
-	for _, yearReport := range yearData {
-		netSymbol := ""
-		if yearReport.Net >= 0 {
-			netSymbol = "+"
-		}
-
-		fmt.Printf("%-10d | $%-11.2f | $%-11.2f | %s$%-11.2f | %d\n",
-			yearReport.Year,
-			yearReport.Income,
-			yearReport.Expenses,
-			netSymbol,
-			yearReport.Net,
-			yearReport.TxCount)
-
-		totalIncome += yearReport.Income
-		totalExpenses += yearReport.Expenses
-		totalNet += yearReport.Net
-		totalTx += yearReport.TxCount
-	}
-
-	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("%-10s | $%-11.2f | $%-11.2f | $%-11.2f | %d\n", "TOTAL", totalIncome, totalExpenses, totalNet, totalTx)
-
-	// Year-over-year growth
-	if len(yearData) >= 2 {
-		fmt.Println("\n--- Year-over-Year Growth ---")
-		for y := 1; y < len(yearData); y++ {
-			currentYear := yearData[y]
-			previousYear := yearData[y-1]
-			comparison := core.GetYearOverYearComparison(previousYear.Year, currentYear.Year)
-
-			fmt.Printf("  Income:   $%.2f → $%.2f (%+.1f%%)\n", comparison.Period1Income, comparison.Period2Income, comparison.IncomePercent)
-			fmt.Printf("  Expenses: $%.2f → $%.2f (%+.1f%%)\n", comparison.Period1Expenses, comparison.Period2Expenses, comparison.ExpensePercent)
-		}
+	fmt.Print("\n")
+	for currency, total := range totalIncome {
+		fmt.Printf("Currency: %-5s | Total Expense: %-12s\n", currency, utils.FormatCurrency(total, currency))
 	}
 }
 
-// Handle category report
+// handleCategoryReport prints category report
 func handleCategoryReport() {
-	fmt.Println("Category Breakdown Analysis")
-	fmt.Println("===========================")
+	showCategories()
+	// fmt.Println("Category Breakdown Analysis")
+	// fmt.Println("===========================")
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Analyze: (1) Expenses (2) Income (3) Both")
-	desireType, err := utils.GetIntInput(reader, "Enter Number Of Type You want: ")
-	if err != nil {
-		fmt.Println("Invalid Int")
-		return
-	}
+	// reader := bufio.NewReader(os.Stdin)
+	// fmt.Println("Select what you want to analyze:")
+	// fmt.Println("\t1) Expenses")
+	// fmt.Println("\t2) Income")
+	// fmt.Println("\t3) Both")
+	// desireType, err := utils.GetIntInput(reader, "Enter the number corresponding to your choice: ")
+	// if err != nil {
+	// 	fmt.Println("Invalid Int")
+	// 	return
+	// }
 
-	var transactionType string
-	switch desireType {
-	case 1:
-		transactionType = "expense"
-		fmt.Println("\n--- Expense Categories ---")
-	case 2:
-		transactionType = "income"
-		fmt.Println("\n--- Income Categories ---")
-	case 3:
-		transactionType = ""
-		fmt.Println("\n--- All Categories ---")
-	default:
-		transactionType = "expense"
-		fmt.Println("\n--- Expense Categories ---")
-	}
+	// var transactionType string
+	// switch desireType {
+	// case 1:
+	// 	transactionType = "expense"
+	// 	fmt.Println("\n--- Expense Categories ---")
+	// case 2:
+	// 	transactionType = "income"
+	// 	fmt.Println("\n--- Income Categories ---")
+	// case 3:
+	// 	transactionType = ""
+	// 	fmt.Println("\n--- All Categories ---")
+	// default:
+	// 	transactionType = "expense"
+	// 	fmt.Println("\n--- Expense Categories ---")
+	// }
 
-	categoryReport := core.GetCategoryBreakdown(transactionType)
+	// categoryReport := core.GetCategoryBreakdown(transactionType)
 
-	if len(categoryReport) == 0 {
-		fmt.Println("No data available.")
-		return
-	}
-	fmt.Printf("\n%-20s | %-12s | %-8s | %s\n", "Category", "Amount", "Count", "Percentage")
-	fmt.Println(strings.Repeat("-", 65))
+	// if len(categoryReport) == 0 {
+	// 	fmt.Println("No data available.")
+	// 	return
+	// }
+	// fmt.Printf("\n%-20s | %-12s | %-8s | %s\n", "Category", "Amount", "Count", "Percentage")
+	// fmt.Println(strings.Repeat("-", 65))
 
-	var total float64
-	for _, report := range categoryReport {
-		fmt.Printf("%-20s | $%-11.2f | %-8d | %.1f%%\n", report.Category, report.Amount, report.Count, report.Percent)
-		total += report.Amount
-	}
-	fmt.Println(strings.Repeat("-", 65))
-	fmt.Printf("%-20s | $%-11.2f\n", "TOTAL", total)
+	// var total float64
+	// for _, report := range categoryReport {
+	// 	fmt.Printf("%-20s | %-11.2f | %-8d | %.1f%%\n", report.Category, report.Amount, report.Count, report.Percent)
+	// 	total += report.Amount
+	// }
+	// fmt.Println(strings.Repeat("-", 65))
+	// fmt.Printf("%-20s | %-11.2f\n", "TOTAL", total)
 
-	// Show top 3
-	if len(categoryReport) >= 3 {
-		fmt.Println("\n--- Top 3 Categories ---")
-		for i := 0; i < 3; i++ {
-			fmt.Printf("%d. %s: $%.2f (%.1f%%)\n", i+1, categoryReport[i].Category, categoryReport[i].Amount, categoryReport[i].Percent)
-		}
-	}
+	// // Show top 3
+	// if len(categoryReport) >= 3 {
+	// 	fmt.Println("\n--- Top 3 Categories ---")
+	// 	for i := 0; i < 3; i++ {
+	// 		fmt.Printf("%d. %s: %.2f (%.1f%%)\n", i+1, categoryReport[i].Category, categoryReport[i].Amount, categoryReport[i].Percent)
+	// 	}
+	// }
 }
 
-// Handle comparison report
+// handleComparisonReport allows users to execute and print different comparison report type
 func handleComparisonReport() {
 	fmt.Println("Period Comparison")
 	fmt.Println("=================")
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Compare: (1) Month-over-Month (2) Year-over-Year (3) Custom Periods")
-	fmt.Print("Choice: ")
-	choice, _ := reader.ReadString('\n')
-	choice = strings.TrimSpace(choice)
+	fmt.Println("Select a comparison type:")
+	fmt.Println("\t1) Month-over-Month")
+	fmt.Println("\t2) Year-over-Year")
+	fmt.Println("\t3) Custom Periods")
+	desireType, err := utils.GetIntInput(reader, "Enter the number corresponding to your choice: ")
+	if err != nil {
+		fmt.Println("Invalid Int")
+		return
+	}
 
-	switch choice {
-	case "1":
+	switch desireType {
+	case 1:
 		handleMonthOverMonthComparison(reader)
-	case "2":
+	case 2:
 		handleYearOverYearComparisonInteractive(reader)
-	case "3":
+	case 3:
 		handleCustomPeriodComparison(reader)
 	default:
 		fmt.Println("Invalid choice!")
 	}
 }
 
-// Handle month-over-month comparison
+// handleMonthOverMonthComparison prints month-over-month comparison
 func handleMonthOverMonthComparison(reader *bufio.Reader) {
 	fmt.Println("\nMonth-over-Month Comparison")
 	fmt.Println("---------------------------")
@@ -323,7 +361,7 @@ func handleMonthOverMonthComparison(reader *bufio.Reader) {
 		return
 	}
 
-	var comparison models.ComparisonReport = core.GetMonthOverMonthComparison(int(year1), time.Month(month1), int(year2), time.Month(month2))
+	comparison := core.GetMonthOverMonthComparison(int(year1), time.Month(month1), int(year2), time.Month(month2))
 
 	fmt.Printf("\nComparison: %s %d vs %s %d\n", time.Month(month1).String(), year1, time.Month(month2).String(), year2)
 	fmt.Println(strings.Repeat("=", 60))
@@ -331,19 +369,19 @@ func handleMonthOverMonthComparison(reader *bufio.Reader) {
 	displayComparisonReport(comparison)
 }
 
-// Handle year-over-year comparison (interactive)
+// handleYearOverYearComparisonInteractive prints year-over-year comparison
 func handleYearOverYearComparisonInteractive(reader *bufio.Reader) {
 	fmt.Println("\nYear-over-Year Comparison")
 	fmt.Println("-------------------------")
 
 	year1, err := utils.GetIntInput(reader, "First Year: ")
-	if err != nil {
+	if err != nil || len(strconv.Itoa(year1)) != 4 {
 		fmt.Println("Invalid year!")
 		return
 	}
 
 	year2, err := utils.GetIntInput(reader, "Second Year: ")
-	if err != nil {
+	if err != nil || len(strconv.Itoa(year2)) != 4 {
 		fmt.Println("Invalid year!")
 		return
 	}
@@ -356,7 +394,7 @@ func handleYearOverYearComparisonInteractive(reader *bufio.Reader) {
 	displayComparisonReport(comparison)
 }
 
-// Handle custom period comparison
+// handleCustomPeriodComparison allows users to enter custom period and prints comparison
 func handleCustomPeriodComparison(reader *bufio.Reader) {
 	fmt.Println("\nCustom Period Comparison")
 	fmt.Println("------------------------")
@@ -407,82 +445,88 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 	displayComparisonReport(comparison)
 }
 
-// Display comparison report (helper function)
-func displayComparisonReport(comparison models.ComparisonReport) {
-	fmt.Printf("\n%-15s | %-15s | %-15s | %s\n", "", "Period 1", "Period 2", "Change")
+// displayComparisonReport prints comparison report result to stdout (helper function)
+func displayComparisonReport(comparisonReport map[string]models.ComparisonReport) {
+	fmt.Printf("\n%-15s | %-15s | %-15s | %-15s | %s\n", "", "Currency", "Period 1", "Period 2", "Change")
 	fmt.Println(strings.Repeat("-", 70))
+	for currency, report := range comparisonReport {
+		// Income
+		incomeSymbol := ""
+		if report.IncomeChange >= 0 {
+			incomeSymbol = "+"
+		}
+		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+			"Income",
+			utils.FormatCurrency(report.Period1Income, currency),
+			utils.FormatCurrency(report.Period2Income, currency),
+			incomeSymbol,
+			utils.FormatCurrency(report.IncomeChange, currency),
+			report.IncomePercent)
 
-	// Income
-	incomeSymbol := ""
-	if comparison.IncomeChange >= 0 {
-		incomeSymbol = "+"
-	}
-	fmt.Printf("%-15s | $%-14.2f | $%-14.2f | %s$%.2f (%+.1f%%)\n",
-		"Income",
-		comparison.Period1Income,
-		comparison.Period2Income,
-		incomeSymbol,
-		comparison.IncomeChange,
-		comparison.IncomePercent)
+		// Expenses
+		expenseSymbol := ""
+		if report.ExpenseChange >= 0 {
+			expenseSymbol = "+"
+		}
+		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+			"Expenses",
+			utils.FormatCurrency(report.Period1Expenses, currency),
+			utils.FormatCurrency(report.Period2Expenses, currency),
+			expenseSymbol,
+			utils.FormatCurrency(report.ExpenseChange, currency),
+			report.ExpensePercent)
 
-	// Expenses
-	expenseSymbol := ""
-	if comparison.ExpenseChange >= 0 {
-		expenseSymbol = "+"
-	}
-	fmt.Printf("%-15s | $%-14.2f | $%-14.2f | %s$%.2f (%+.1f%%)\n",
-		"Expenses",
-		comparison.Period1Expenses,
-		comparison.Period2Expenses,
-		expenseSymbol,
-		comparison.ExpenseChange,
-		comparison.ExpensePercent)
+		// Net
+		net1 := report.Period1Income - report.Period1Expenses
+		net2 := report.Period2Income - report.Period2Expenses
+		netChange := net2 - net1
 
-	// Net
-	net1 := comparison.Period1Income - comparison.Period1Expenses
-	net2 := comparison.Period2Income - comparison.Period2Expenses
-	netChange := net2 - net1
+		netSymbol := ""
+		if netChange >= 0 {
+			netSymbol = "+"
 
-	netSymbol := ""
-	if netChange >= 0 {
-		netSymbol = "+"
-	}
+		}
+		var netPercent float64
+		if net1 != 0 {
+			netPercent = (netChange / net1) * 100
+		}
+		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+			"Net",
+			utils.FormatCurrency(net1, currency),
+			utils.FormatCurrency(net2, currency),
+			netSymbol,
+			utils.FormatCurrency(netChange, currency),
+			netPercent)
 
-	var netPercent float64
-	if net1 != 0 {
-		netPercent = (netChange / net1) * 100
-	}
+		// Insights
+		fmt.Println("\n--- Insights ---")
+		if report.IncomeChange > 0 {
+			fmt.Printf("✓ Income increased by %.2f\n", report.IncomeChange)
+		} else if report.IncomeChange < 0 {
+			fmt.Printf("⚠ Income decreased by %.2f\n", -report.IncomeChange)
+		}
 
-	fmt.Printf("%-15s | $%-14.2f | $%-14.2f | %s$%.2f (%+.1f%%)\n", "Net", net1, net2, netSymbol, netChange, netPercent)
+		if report.ExpenseChange > 0 {
+			fmt.Printf("⚠ Expenses increased by %.2f\n", report.ExpenseChange)
+		} else if report.ExpenseChange < 0 {
+			fmt.Printf("✓ Expenses decreased by %.2f\n", -report.ExpenseChange)
+		}
 
-	// Insights
-	fmt.Println("\n--- Insights ---")
-	if comparison.IncomeChange > 0 {
-		fmt.Printf("✓ Income increased by $%.2f\n", comparison.IncomeChange)
-	} else if comparison.IncomeChange < 0 {
-		fmt.Printf("⚠ Income decreased by $%.2f\n", -comparison.IncomeChange)
-	}
-
-	if comparison.ExpenseChange > 0 {
-		fmt.Printf("⚠ Expenses increased by $%.2f\n", comparison.ExpenseChange)
-	} else if comparison.ExpenseChange < 0 {
-		fmt.Printf("✓ Expenses decreased by $%.2f\n", -comparison.ExpenseChange)
-	}
-
-	if netChange > 0 {
-		fmt.Printf("✓ Overall improvement: +$%.2f\n", netChange)
-	} else if netChange < 0 {
-		fmt.Printf("⚠ Overall decline: $%.2f\n", netChange)
+		if netChange > 0 {
+			fmt.Printf("✓ Overall improvement: +%.2f\n", netChange)
+		} else if netChange < 0 {
+			fmt.Printf("⚠ Overall decline: %.2f\n", netChange)
+		}
 	}
 }
 
-// Handle anomalies report
+// handleAnomaliesReport prints anomaly transactiosn (transactions) that are above user specified threshold.
 func handleAnomaliesReport() {
 	fmt.Println("Unusual Spending Detection (find expense transactions that are x time of average)")
 	fmt.Println("=================================================================================")
-
-	fmt.Println("Threshold value will multiply by average expense of all time and then transactions above that value will be returned. For example if 2 then any expense transaction that is above 2xAverage will be considered as Unusual Spending. (Defualt 3.0) ")
+	fmt.Println("Threshold value will multiply by average expense of all time and then transactions above that value will be returned. For example if threshold is set to 2 then any expense transaction that is above 2xAverage will be considered as Unusual Spending. (Defualt 3.0) ")
 	fmt.Print("Your Input: ")
+
 	reader := bufio.NewReader(os.Stdin)
 	thresholdInput, _ := reader.ReadString('\n')
 	thresholdInput = strings.TrimSpace(thresholdInput)
@@ -496,7 +540,7 @@ func handleAnomaliesReport() {
 	}
 
 	fmt.Printf("Finding Expenses Above %.1f X Average.", threshold)
-	var anomalyTransactions []models.Transaction = core.DetectHighSpending(threshold)
+	var anomalyTransactions []models.Transaction = core.DetectHighSpendingTransactions(threshold)
 
 	if len(anomalyTransactions) == 0 {
 		fmt.Printf("\n✓ No unusual spending detected (threshold: %.1fx average)\n", threshold)
@@ -504,40 +548,5 @@ func handleAnomaliesReport() {
 	}
 
 	fmt.Printf("\n⚠ Found %d unusual transactions (threshold: %.1fx average):\n\n", len(anomalyTransactions), threshold)
-
-	core.ListFilteredTransactions(anomalyTransactions, "Unusual Spending")
-
-}
-
-// Handle trends report
-func handleTrendsReport() {
-	fmt.Println("Spending Trends Analysis")
-	fmt.Println("========================")
-
-	categories := core.GetCategories()
-
-	if len(categories) == 0 {
-		fmt.Println("No categories available.")
-		return
-	}
-
-	fmt.Println("\nAnalyzing trends over the last 6 months...\n")
-
-	fmt.Printf("%-20s | %-15s | %s\n", "Category", "Trend", "Status")
-	fmt.Println(strings.Repeat("-", 60))
-
-	for _, category := range categories {
-		trend := core.GetCategoryTrend(category, 6)
-
-		trendSymbol := "→"
-		if trend == "increasing" {
-			trendSymbol = "↑"
-		} else if trend == "decreasing" {
-			trendSymbol = "↓"
-		}
-
-		fmt.Printf("%-20s | %-15s | %s\n", category, trend, trendSymbol)
-	}
-
-	fmt.Println("\n💡 Legend: ↑ Increasing | ↓ Decreasing | → Stable")
+	ListFilteredTransactions(anomalyTransactions, "Unusual Spending")
 }

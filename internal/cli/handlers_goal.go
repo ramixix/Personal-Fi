@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"financial_tracker/internal/core"
 	"financial_tracker/internal/models"
-	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
@@ -20,10 +19,10 @@ func handleGoals() {
 		fmt.Println("Usage: financial-tracker goals [command]")
 		fmt.Println("Commands:")
 		fmt.Println("  create      Create a new goal")
-		fmt.Println("  list        List all goals")
+		fmt.Println("  list        List last 100 goals")
 		fmt.Println("  active      List active goals")
 		fmt.Println("  completed   List completed goals")
-		fmt.Println("  view        View detailed goal information")
+		fmt.Println("  fullDetail  View detailed goal information")
 		fmt.Println("  contribute  Add contribution to a goal")
 		fmt.Println("  update      Update goal status")
 		fmt.Println("  delete      Delete a goal")
@@ -35,13 +34,13 @@ func handleGoals() {
 	case "create":
 		handleCreateGoal()
 	case "list":
-		handleListGoals()
+		handleListGoals(recent100)
 	case "active":
 		handleListActiveGoals()
 	case "completed":
 		handleListCompletedGoals()
-	case "view":
-		handleViewGoal()
+	case "fullDetail":
+		handleViewSpecificGoalDetails()
 	case "contribute":
 		handleContributeToGoal()
 	case "update":
@@ -53,6 +52,7 @@ func handleGoals() {
 	}
 }
 
+// handleCreateGoal handles creating goals through CLI
 func handleCreateGoal() {
 	fmt.Println("Create New Goal")
 	fmt.Println("===============")
@@ -68,10 +68,13 @@ func handleCreateGoal() {
 	description := strings.TrimSpace(descInput)
 
 	// Get target amount
+	fmt.Print("Target ")
 	targetAmount := utils.GetValidAmount(reader)
 
+	currencyCode := utils.GetValidCurrency(reader, "USD")
+
 	// Get category
-	fmt.Println("\nCategory options: savings, debt, investment, purchase, other ...(if empty set to saving by default)")
+	fmt.Println("\nCategory options: savings, debt, investment, purchase, other ...(if empty  by default will set to 'saving')")
 	fmt.Print("Category: ")
 	categoryInput, _ := reader.ReadString('\n')
 	category := strings.TrimSpace(categoryInput)
@@ -107,17 +110,19 @@ func handleCreateGoal() {
 	}
 
 	// Ask about linking to account
-	var linkedAccountID int
-	if len(storage.Accounts) > 0 {
+	var linkedAccountID string
+	accounts := core.GetRecentAccounts(recent100)
+	if len(accounts) > 0 {
 		fmt.Print("\nDo you want to link this goal to an account? (yes/no): ")
 		linkChoice, _ := reader.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(linkChoice)) == "yes" {
-			fmt.Println("\nAvailable accounts:")
-			for _, account := range storage.Accounts {
-				fmt.Printf("  ID: %d - %s\n", account.ID, account.Name)
-			}
-			accountID, err := utils.GetIntInput(reader, "Account ID (or 0 for none): ")
-			if err == nil && core.FindAccountIndex(accountID) != -1 {
+			fmt.Printf("\n[Info] Total Account Number: %d.\n", core.GetAccountsLength())
+			fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
+			accountsToShow := GetAccountsNumberToShow(reader, recent100)
+			handleListAccounts(accountsToShow)
+
+			accountID := utils.GetNonEmptyString(reader, "Account ID: ")
+			if core.FindAccount(accountID) != nil {
 				linkedAccountID = accountID
 			}
 		}
@@ -125,11 +130,12 @@ func handleCreateGoal() {
 
 	// Create goal
 	newGoal := models.Goal{
-		ID:              storage.NextGoalID,
+		ID:              utils.MustGenerateUUID(),
 		Name:            name,
 		Description:     description,
 		TargetAmount:    targetAmount,
 		CurrentAmount:   0.0,
+		CurrencyCode:    currencyCode,
 		Deadline:        deadline,
 		HasDeadline:     hasDeadline,
 		Category:        category,
@@ -140,7 +146,7 @@ func handleCreateGoal() {
 	}
 
 	core.AddGoal(newGoal)
-	fmt.Printf("\n✓ Goal '%s' created successfully! ID: %d\n", name, newGoal.ID)
+	fmt.Printf("\n✓ Goal '%s' created successfully! ID: %s\n", name, newGoal.ID)
 
 	// Show required monthly contribution if deadline is set
 	if hasDeadline {
@@ -149,27 +155,34 @@ func handleCreateGoal() {
 	}
 }
 
-// List all goals
-func handleListGoals() {
-	fmt.Println("All Goals")
-	fmt.Println("=========")
+// handleListGoals(N) lists recent goals
+func handleListGoals(numberofGoalsToShow int) {
+	fmt.Println("List Goals")
+	fmt.Println("==========")
+	goalsCount := core.GetGoalsLength("")
 
-	if len(storage.Goals) == 0 {
+	if goalsCount <= 0 {
 		fmt.Println("No goals found. Create one with: goals create")
 		return
 	}
 
-	for _, goal := range storage.Goals {
+	goalsToShow := core.GetRecentGoals(numberofGoalsToShow)
+	for _, goal := range goalsToShow {
 		displayGoalSummary(goal)
 	}
 
 	// Show totals
 	fmt.Printf("\n--- Summary ---\n")
-	fmt.Printf("Total Goals: %d\n", len(storage.Goals))
-	fmt.Printf("Total Saved: $%.2f\n", core.GetTotalGoalsSaved())
+	fmt.Printf("Total Goals: %d\n", goalsCount)
+	fmt.Println("\nTotal Across All Goals:")
+	fmt.Println("--------------------------")
+	totals := core.GetTotalAccountsBalanceByCurrency()
+	for currency, total := range totals {
+		fmt.Printf("%s: %.2f\n", currency, total)
+	}
 }
 
-// List active goals
+// handleListActiveGoals lists all active goals
 func handleListActiveGoals() {
 	fmt.Println("Active Goals")
 	fmt.Println("============")
@@ -187,7 +200,7 @@ func handleListActiveGoals() {
 	fmt.Printf("\nTotal Active Goals: %d\n", len(activeGoals))
 }
 
-// List completed goals
+// handleListCompletedGoals lists all completed goals
 func handleListCompletedGoals() {
 	fmt.Println("Completed Goals")
 	fmt.Println("===============")
@@ -206,7 +219,7 @@ func handleListCompletedGoals() {
 	fmt.Printf("\nTotal Completed Goals: %d\n", len(completedGoals))
 }
 
-// Display goal summary (one line)
+// displayGoalSummary(goal) displays short summary of given gool(one line)
 func displayGoalSummary(goal models.Goal) {
 	progress := core.GetGoalProgress(goal)
 	statusSymbol := "🎯"
@@ -216,58 +229,57 @@ func displayGoalSummary(goal models.Goal) {
 		statusSymbol = "⏸️"
 	}
 
-	fmt.Printf("%s ID: %d | %s | $%.2f / $%.2f (%.1f%%) | %s | Priority: %s\n",
+	fmt.Printf("%s ID: %s | %s | $%.2f / $%.2f (%.1f%%) | %s | %s | Priority: %s\n",
 		statusSymbol,
 		goal.ID,
 		goal.Name,
 		goal.CurrentAmount,
 		goal.TargetAmount,
 		progress,
+		goal.CurrencyCode,
 		goal.Status,
 		goal.Priority)
 }
 
-// View detailed goal information
-func handleViewGoal() {
-	if len(storage.Goals) == 0 {
+// handleViewSpecificGoalDetails views detailed goal information
+func handleViewSpecificGoalDetails() {
+	goalsCount := core.GetGoalsLength("")
+	if goalsCount <= 0 {
 		fmt.Println("No goals available.")
 		return
 	}
 
 	fmt.Println("View Specific Goal With Full Details")
 	fmt.Println("====================================")
-
-	fmt.Println("Available goals:")
-	for _, goal := range storage.Goals {
-		fmt.Printf("  ID: %d - %s\n", goal.ID, goal.Name)
-	}
-
+	fmt.Printf("\n[Info] Total Goals Number: %d.\n", goalsCount)
+	fmt.Println("\nPress Enter to show the latest %d goals (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all goals.", recent100)
 	reader := bufio.NewReader(os.Stdin)
-	goalID, err := utils.GetIntInput(reader, "\nEnter ID of goal you want to view in details: ")
-	if err != nil {
-		fmt.Println("Invalid goal ID! Select What is presented in given list.")
-		return
-	}
+
+	goalsToShow := GetGoalsNumberToShow(reader, recent100)
+	handleListGoals(goalsToShow)
+
+	goalID := utils.GetNonEmptyString(reader, "\nEnter ID of the goal you want to view in details: ")
 
 	goal := core.FindGoal(goalID)
 	if goal == nil {
-		fmt.Println("Goal not found!")
+		fmt.Println("Goal not found. Please verify the ID you entered.")
 		return
 	}
 
 	// Display detailed information
 	fmt.Printf("\n=== %s ===\n", goal.Name)
-	fmt.Printf("ID: %d\n", goal.ID)
+	fmt.Printf("ID: %s\n", goal.ID)
 	fmt.Printf("Status: %s\n", goal.Status)
 	fmt.Printf("Category: %s\n", goal.Category)
 	fmt.Printf("Priority: %s\n", goal.Priority)
+	fmt.Printf("Currency: %s\n", goal.CurrencyCode)
 
 	if goal.Description != "" {
 		fmt.Printf("Description: %s\n", goal.Description)
 	}
 
 	fmt.Printf("\n--- Progress ---\n")
-	fmt.Printf("Current Amount: $%.2f\n", goal.CurrentAmount)
+	fmt.Printf("Current Amount: %s\n", utils.FormatCurrency(goal.CurrentAmount, goal.CurrencyCode))
 	fmt.Printf("Target Amount:  $%.2f\n", goal.TargetAmount)
 	fmt.Printf("Remaining Amount:      $%.2f\n", goal.TargetAmount-goal.CurrentAmount)
 
@@ -307,7 +319,7 @@ func handleViewGoal() {
 	}
 
 	// Linked account
-	if goal.LinkedAccountID != 0 {
+	if goal.LinkedAccountID != "" {
 		account := core.FindAccount(goal.LinkedAccountID)
 		if account != nil {
 			fmt.Printf("\n--- Linked Account ---\n")
@@ -316,20 +328,20 @@ func handleViewGoal() {
 	}
 
 	// Contribution history
-	contributions := core.GetGoalContributions(goalID)
+	contributions := core.GetSpecificGoalContributions(goalID)
 	if len(contributions) > 0 {
-		fmt.Printf("\n--- Recent 10 Goal Contributions ---\n")
-		count := 10
-		if len(contributions) < 10 {
-			count = len(contributions)
+		contributionsCount := len(contributions)
+		fmt.Printf("\n--- Total Contributions For This Goal %d ", contributionsCount)
+		count := recent100
+		if contributionsCount < recent100 {
+			count = contributionsCount
 		}
-		startIndex := len(contributions) - count
-		for i := startIndex; i < len(contributions); i++ {
+		fmt.Printf("\n--- Showing Recent %d Goal Contributions ---\n", count)
+
+		startIndex := contributionsCount - count
+		for i := startIndex; i < contributionsCount; i++ {
 			c := contributions[i]
 			fmt.Printf("%s | +$%.2f | %s\n", c.Date.Format("2006-01-02"), c.Amount, c.Note)
-		}
-		if len(contributions) > 10 {
-			fmt.Printf("(... and %d more)\n", len(contributions)-10)
 		}
 	}
 
@@ -340,6 +352,7 @@ func handleViewGoal() {
 	}
 }
 
+// generateProgressBar creates a bar based percentage of goals current amount and target amount
 func generateProgressBar(percentage float64, width int) string {
 	filled := int((percentage / 100) * float64(width))
 	if filled > width {
@@ -358,9 +371,10 @@ func generateProgressBar(percentage float64, width int) string {
 	return bar
 }
 
-// Contribute to a goal
+// handleContributeToGoal Contribute to a goal
 func handleContributeToGoal() {
-	if len(storage.Goals) == 0 {
+	goalsCount := core.GetGoalsLength("")
+	if goalsCount <= 0 {
 		fmt.Println("No goals available. Create one first.")
 		return
 	}
@@ -377,20 +391,16 @@ func handleContributeToGoal() {
 
 	fmt.Println("Active goals:")
 	for _, goal := range activeGoals {
-		fmt.Printf("  ID: %d - %s ($%.2f / $%.2f)\n",
-			goal.ID, goal.Name, goal.CurrentAmount, goal.TargetAmount)
+		fmt.Printf("  ID: %s - %s ($%.2f / $%.2f %s)\n",
+			goal.ID, goal.Name, goal.CurrentAmount, goal.TargetAmount, goal.CurrencyCode)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	goalID, err := utils.GetIntInput(reader, "Enter Goal ID: ")
-	if err != nil {
-		fmt.Println("Invalid goal ID!")
-		return
-	}
+	goalID := utils.GetNonEmptyString(reader, "Enter Goal ID: ")
 
 	goal := core.FindGoal(goalID)
 	if goal == nil {
-		fmt.Println("Goal not found!")
+		fmt.Println("Goal not found. Please verify the ID you entered.")
 		return
 	}
 
@@ -421,31 +431,28 @@ func handleContributeToGoal() {
 	}
 }
 
+// handleUpdateGoalStatus updates goal status
 func handleUpdateGoalStatus() {
-	if len(storage.Goals) == 0 {
+	goalsCount := core.GetGoalsLength("")
+	if goalsCount == 0 {
 		fmt.Println("No goals available.")
 		return
 	}
 
 	fmt.Println("Update Goal Status")
 	fmt.Println("==================")
-
-	// Show all goals
-	fmt.Println("All goals:")
-	for _, goal := range storage.Goals {
-		fmt.Printf("  ID: %d - %s (Current status: %s)\n", goal.ID, goal.Name, goal.Status)
-	}
-
+	fmt.Printf("\n[Info] Total Goals Number: %d.\n", goalsCount)
+	fmt.Println("\nPress Enter to show the latest %d goals (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all goals.", recent100)
 	reader := bufio.NewReader(os.Stdin)
-	goalID, err := utils.GetIntInput(reader, "\nEnter goal ID: ")
-	if err != nil {
-		fmt.Println("Invalid goal ID!")
-		return
-	}
+
+	goalsToShow := GetGoalsNumberToShow(reader, recent100)
+	handleListGoals(goalsToShow)
+
+	goalID := utils.GetNonEmptyString(reader, "\nEnter goal ID: ")
 
 	goal := core.FindGoal(goalID)
 	if goal == nil {
-		fmt.Println("Goal not found!")
+		fmt.Println("Goal not found. Please verify the ID you entered.")
 		return
 	}
 
@@ -481,20 +488,23 @@ func handleUpdateGoalStatus() {
 	}
 }
 
-// Delete a goal
+// handleDeleteGoal deletes a goal
 func handleDeleteGoal() {
-	if len(storage.Goals) == 0 {
+	goalsCount := core.GetGoalsLength("")
+	if goalsCount <= 0 {
 		fmt.Println("No goals to delete.")
 		return
 	}
 
 	fmt.Println("Delete Goal")
 	fmt.Println("===========")
-
-	// Show all goals
-	handleListGoals()
-
+	fmt.Printf("\n[Info] Total Goals Number: %d.\n", goalsCount)
+	fmt.Println("\nPress Enter to show the latest %d goals (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all goals.", recent100)
 	reader := bufio.NewReader(os.Stdin)
+
+	goalsToShow := GetGoalsNumberToShow(reader, recent100)
+	handleListGoals(goalsToShow)
+
 	fmt.Print("\nEnter goal ID to delete (or 'cancel'): ")
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
@@ -504,20 +514,48 @@ func handleDeleteGoal() {
 		return
 	}
 
-	id, err := strconv.Atoi(input)
-	if err != nil {
-		fmt.Println("Invalid ID!")
-		return
-	}
-
 	if !utils.GetConfirmation(reader, "Are you sure? This will delete the goal and all contribution history. (yes/no): ") {
 		fmt.Println("Deletion cancelled.")
 		return
 	}
 
-	if core.DeleteGoal(id) {
-		fmt.Printf("✓ Goal ID %d deleted successfully!\n", id)
+	if core.DeleteGoal(input) == nil {
+		fmt.Printf("✓ Goal ID %s deleted successfully!\n", input)
 	} else {
-		fmt.Printf("Goal ID %d not found!\n", id)
+		fmt.Printf("Goal ID %d not found!\n", input)
 	}
+}
+
+// GetAccountsNumberToShow asks users for a specific number N to list last N Accounts.
+func GetGoalsNumberToShow(reader *bufio.Reader, defaultValue int) int {
+	goalsToShow := defaultValue
+	totalGoals := core.GetGoalsLength("")
+	if defaultValue > totalGoals {
+		goalsToShow = totalGoals
+	}
+InputLoop:
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		switch input {
+		case "":
+			fmt.Printf("\nDisplaying %d recent goals:\n", goalsToShow)
+			break InputLoop
+		case "all":
+			fmt.Println("\nDisplaying all goals:")
+			goalsToShow = totalGoals
+			break InputLoop
+		default:
+			number, err := strconv.Atoi(input)
+			if err != nil || number <= 0 || number >= totalGoals {
+				fmt.Println("[Warning] Not a valid number, try again.")
+				continue
+			}
+			fmt.Printf("\nDisplaying last %d goals:\n", number)
+			goalsToShow = number
+			break InputLoop
+		}
+	}
+	return goalsToShow
 }

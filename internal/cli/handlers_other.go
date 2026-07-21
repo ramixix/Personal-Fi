@@ -2,6 +2,7 @@ package cli
 
 import (
 	"financial_tracker/internal/core"
+	"financial_tracker/internal/models"
 	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
@@ -12,76 +13,62 @@ import (
 func handleSummary() {
 	fmt.Println("Financial Summary")
 	fmt.Println("=================")
-	transactions := core.GetAllTransactions()
-	accounts := core.GetAllAccounts()
-	transactionsCount := len(transactions)
-	accountsCount := len(accounts)
+	transactionsCount := core.GetTransactionsLength("")
+	accountsCount := core.GetAccountsLength()
 
-	if transactionsCount == 0 && accountsCount == 0 {
+	if transactionsCount <= 0 && accountsCount <= 0 {
 		fmt.Println("No data available yet. Start by adding transactions or creating accounts!")
 		return
 	}
 
-	totalIncome, totalExpenses := core.CalculateTotals()
-	netAmount := totalIncome - totalExpenses
-	fmt.Println("\n--- Overall Totals ---")
-	fmt.Printf("Total Income:    %.2f\n", totalIncome)
-	fmt.Printf("Total Expenses:  %.2f\n", totalExpenses)
-	fmt.Printf("Net Amount:      %.2f", netAmount)
-	if netAmount >= 0 {
-		fmt.Println(" ✓")
-	} else {
-		fmt.Println(" ⚠")
-	}
+	fmt.Println("\n--- Transaction Stats ---")
+	fmt.Printf("Total number of Income transactions:\t%d\n", core.GetTransactionsLength(models.Income))
+	fmt.Printf("Total number of expense transactions:\t%d\n", core.GetTransactionsLength(models.Expense))
+	fmt.Printf("Total number of transactions:\t%d\n", transactionsCount)
 
-	if transactionsCount > 0 {
-		avgIncome, avgExpenses := core.GetMonthlyAverage()
-		fmt.Println("\n--- Monthly Averages ---")
-		fmt.Printf("Avg Income:      %.2f\n", avgIncome)
-		fmt.Printf("Avg Expenses:    %.2f\n", avgExpenses)
-		fmt.Printf("Avg Net:         %.2f\n", avgIncome-avgExpenses)
+	currency_totals, err := core.CalculateTotalsByCurrency()
+	if err == nil {
+		fmt.Println("\n--- Overall Totals ---")
+		for currency, totals := range currency_totals {
+			netAmount := totals.Income - totals.Expenses
+			fmt.Printf("Currency:\t%s\n", currency)
+			fmt.Printf("\tTotal Income:\t%s\n", utils.FormatCurrency(totals.Income, currency))
+			fmt.Printf("\tTotal Expenses:\t%s\n", utils.FormatCurrency(totals.Expenses, currency))
+			fmt.Printf("\tNet Amount:\t%s", utils.FormatCurrency(netAmount, currency))
+			if netAmount >= 0 {
+				fmt.Println(" ✓\n\n")
+			} else {
+				fmt.Println(" ⚠\n\n")
+			}
+		}
 	}
 
 	// Account summary
 	if accountsCount > 0 {
 		fmt.Println("\n--- Accounts Summary ---")
-		var totalAccountBalance float64
-		for _, account := range accounts {
-			totalAccountBalance += account.Balance
-			fmt.Printf("%-20s %s\n", account.Name+":", utils.FormatCurrency(account.Balance, account.CurrencyCode))
-		}
-		fmt.Printf("%-20s %.2f\n", "Total in Accounts:", totalAccountBalance)
-	}
-
-	// Transaction count
-	fmt.Println("\n--- Transaction Statistics ---")
-	fmt.Printf("Total Transactions: %d\n", transactionsCount)
-
-	incomeCount := 0
-	expenseCount := 0
-	for _, t := range transactions {
-		if t.Type == "income" {
-			incomeCount++
-		} else {
-			expenseCount++
+		totalAccountBalanceByCurrency := core.GetTotalAccountsBalanceByCurrency()
+		for currency, total := range totalAccountBalanceByCurrency {
+			fmt.Printf("%-20s %s\n", utils.FormatCurrency(total, currency), currency)
 		}
 	}
-	fmt.Printf("Income Entries:     %d\n", incomeCount)
-	fmt.Printf("Expense Entries:    %d\n", expenseCount)
 
-	// Date range
-	if transactionsCount > 0 {
-		var oldestDate, newestDate = transactions[0].Date, transactions[0].Date
-		for _, transaction := range transactions {
-			if transaction.Date.Before(oldestDate) {
-				oldestDate = transaction.Date
-			}
-			if transaction.Date.After(newestDate) {
-				newestDate = transaction.Date
+	currency_totals, err = core.GetMonthlyAverage()
+	if err == nil {
+		fmt.Println("\n--- All Months Average ---")
+		for currency, totals := range currency_totals {
+			netAmount := totals.Income - totals.Expenses
+			fmt.Printf("Currency:\t%s\n", currency)
+			fmt.Printf("\tAvg Income:\t%s\n", utils.FormatCurrency(totals.Income, currency))
+			fmt.Printf("\tAvg Expenses:\t%s\n", utils.FormatCurrency(totals.Expenses, currency))
+			fmt.Printf("\tAvg Amount:\t%s", utils.FormatCurrency(netAmount, currency))
+			if netAmount >= 0 {
+				fmt.Println(" ✓\n\n")
+			} else {
+				fmt.Println(" ⚠\n\n")
 			}
 		}
-		fmt.Printf("Date Range: %s to %s\n", oldestDate.Format("2006-01-02"), newestDate.Format("2006-01-02"))
 	}
+
 }
 
 // Handle delete command with subcommands

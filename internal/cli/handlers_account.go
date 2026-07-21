@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// Handle accounts command with subcommands
+// handleAccounts handles accounts command with subcommands
 func handleAccounts() {
 	if len(os.Args) < 3 {
 		fmt.Println("Account Management")
@@ -20,7 +21,7 @@ func handleAccounts() {
 		fmt.Printf("Usage: %s accounts [command]\n", filepath.Base(os.Args[0]))
 		fmt.Println("Commands:")
 		fmt.Println("  create    Create a new account")
-		fmt.Println("  list      List all accounts")
+		fmt.Println("  list      List last 100 accounts")
 		fmt.Println("  add       Add money to an account")
 		fmt.Println("  history   Show account transaction history")
 		fmt.Println("  delete    Delete account along all transaction belong to it")
@@ -32,7 +33,7 @@ func handleAccounts() {
 	case "create":
 		handleCreateAccount()
 	case "list":
-		handleListAccounts()
+		handleListAccounts(recent100)
 	case "add":
 		handleAddToAccount()
 	case "history":
@@ -44,7 +45,7 @@ func handleAccounts() {
 	}
 }
 
-// Create a new account
+// handleCreateAccount creates a new account by receiving necessary information from user
 func handleCreateAccount() {
 	fmt.Println("Create New Account")
 	fmt.Println("==================")
@@ -66,40 +67,81 @@ func handleCreateAccount() {
 	fmt.Printf("✓ Account '%s' created successfully! ID: %s\n", accountName, newAccount.ID)
 }
 
-// List all accounts
-func handleListAccounts() {
+// handleListAccounts lists recent accounts
+func handleListAccounts(numberofAccountsToShow int) {
 	fmt.Println("List Accounts")
 	fmt.Println("==============")
 
-	accounts := core.GetAllAccounts()
-	if len(accounts) == 0 {
-		fmt.Println("\n[Info] No Accounts Found.")
-		return
+	accountsToShow := core.GetRecentAccounts(numberofAccountsToShow)
+
+	for _, account := range accountsToShow {
+		fmt.Printf("ID: %-8s | Account Name: %-20s | Balance: %-15s | Created: %s\n",
+			account.ID,
+			account.Name,
+			utils.FormatCurrency(account.Balance, account.CurrencyCode),
+			account.Created.Format("2006-01-02"))
 	}
 
-	var totalBalance float64
-	for _, account := range accounts {
-		fmt.Printf("ID: %-8s | Account Name: %-20s | Balance: %-15s | Created: %s\n", account.ID, account.Name, utils.FormatCurrency(account.Balance, account.CurrencyCode), account.Created.Format("2006-01-02"))
-		totalBalance += account.Balance
-	}
+	balances := core.GetTotalAccountsBalanceByCurrency()
 
-	fmt.Printf("\n Total Across All Acounts: $%.2f\n", totalBalance)
+	fmt.Println("\nTotal Across All Accounts:")
+	fmt.Println("--------------------------")
+	for currency, total := range balances {
+		fmt.Printf("%s: %.2f\n", currency, total)
+	}
 }
 
-// Add money to an account
+// GetAccountsNumberToShow asks users for a specific number N to list last N Accounts.
+func GetAccountsNumberToShow(reader *bufio.Reader, defaultValue int) int {
+	accountsToShow := defaultValue
+	totalAccounts := core.GetAccountsLength()
+	if defaultValue > totalAccounts {
+		accountsToShow = totalAccounts
+	}
+InputLoop:
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		switch input {
+		case "":
+			fmt.Printf("\nDisplaying %d recent accounts:\n", accountsToShow)
+			break InputLoop
+		case "all":
+			fmt.Println("\nDisplaying all accounts:")
+			accountsToShow = totalAccounts
+			break InputLoop
+		default:
+			number, err := strconv.Atoi(input)
+			if err != nil || number <= 0 || number >= totalAccounts {
+				fmt.Println("[Warning] Not a valid number, try again.")
+				continue
+			}
+			fmt.Printf("\nDisplaying last %d accounts:\n", number)
+			accountsToShow = number
+			break InputLoop
+		}
+	}
+	return accountsToShow
+}
+
+// handleAddToAccount adds money to an account
 func handleAddToAccount() {
-	accounts := core.GetAllAccounts()
-	if len(accounts) == 0 {
+	accountsCount := core.GetAccountsLength()
+	if accountsCount <= 0 {
 		fmt.Println("No accounts available. Create an account first.")
 		return
 	}
 
 	fmt.Println("Add Money To Account")
 	fmt.Println("====================")
-
-	handleListAccounts()
-
+	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
+	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
+
+	accountsToShow := GetAccountsNumberToShow(reader, recent100)
+	handleListAccounts(accountsToShow)
+
 	id := utils.GetNonEmptyString(reader, "\nPlease Enter Account ID: ")
 
 	account := core.FindAccount(id)
@@ -114,27 +156,26 @@ func handleAddToAccount() {
 	note := strings.TrimSpace(noteInput)
 
 	core.AddMoneyToAccount(id, amountToAdd, note)
-	fmt.Printf("✓ Added $%.2f to '%s'", amountToAdd, account.Name)
+	fmt.Printf("✓ Added %.2f to '%s'", amountToAdd, account.Name)
 }
 
-// Show account transaction history
+// handleAccountHistory shows specific account history
 func handleAccountHistory() {
-	accounts := core.GetAllAccounts()
-	if len(accounts) == 0 {
+	accountsCount := core.GetAccountsLength()
+	if accountsCount <= 0 {
 		fmt.Println("[Warning] No Account Available.")
 		return
 	}
 
 	fmt.Println("Acouunt History")
 	fmt.Println("===============")
-
-	fmt.Println("Available Accounts:")
-
-	for _, account := range accounts {
-		fmt.Printf("Account ID: %s | Account Name: %s\n", account.ID, account.Name)
-	}
-
+	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
+	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
+
+	accountsToShow := GetAccountsNumberToShow(reader, recent100)
+	handleListAccounts(accountsToShow)
+
 	id := utils.GetNonEmptyString(reader, "\nPlease Enter Account ID: ")
 
 	var accountName string
@@ -148,32 +189,36 @@ func handleAccountHistory() {
 	fmt.Printf("\nHistory for Account %s:\n", accountName)
 	fmt.Println(strings.Repeat("=", len(accountName)+20))
 
-	accountTransactions := core.GetAccountTransactions(id)
+	accountTransactions := core.GetOneAccountTransactions(id)
 	if len(accountTransactions) > 0 {
 		for _, transac := range accountTransactions {
-			fmt.Printf("%-12s | +$%-14.2f | %s\n", transac.Date.Format("2006-01-02 15:04"), transac.Amount, transac.Note)
+			fmt.Printf("%-12s | +%-14s | %s\n",
+				transac.Date.Format("2006-01-02 15:04"),
+				utils.FormatCurrency(transac.Amount, account.CurrencyCode),
+				transac.Note)
 		}
 	} else {
 		fmt.Println("[Warning] No Transaction Found For This Account.")
 	}
 }
 
-// Handle delete account command
+// handleDeleteAccount deletes users selected account
 func handleDeleteAccount() {
-	accounts := core.GetAllAccounts()
-	if len(accounts) == 0 {
+	accountsCount := core.GetAccountsLength()
+	if accountsCount <= 0 {
 		fmt.Println("[Info] No Accounts to Delete")
 		return
 	}
 
 	fmt.Println("Delete Account")
 	fmt.Println("==============")
-
-	fmt.Printf("\n[Info] Total Account Number: %d.\n", len(accounts))
-
-	handleListAccounts()
-
+	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
+	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
+
+	accountsToShow := GetAccountsNumberToShow(reader, recent100)
+	handleListAccounts(accountsToShow)
+
 	input := utils.GetNonEmptyString(reader, "\nPlease Enter Account ID to Delete (or 'cancel'): ")
 
 	if input == "cancel" {

@@ -3,7 +3,6 @@ package cli
 import (
 	"bufio"
 	"financial_tracker/internal/core"
-	"financial_tracker/internal/storage"
 	"financial_tracker/internal/utils"
 	"fmt"
 	"os"
@@ -27,12 +26,13 @@ func handleExport() {
 
 	switch exportType {
 	case "transactions":
+
 		filename := "transactions_export.csv"
 		if err := core.ExportTransactionsToCSV(filename); err != nil {
 			fmt.Printf("Error exporting transactions: %v\n", err)
 			return
 		}
-		fmt.Printf("✓ Transactions exported to %s (%d records)\n", filename, len(storage.Transactions))
+		fmt.Printf("✓ Transactions are exported to %s.\n", filename)
 
 	case "accounts":
 		filename := "accounts_export.csv"
@@ -40,7 +40,7 @@ func handleExport() {
 			fmt.Printf("Error exporting accounts: %v\n", err)
 			return
 		}
-		fmt.Printf("✓ Accounts exported to %s (%d records)\n", filename, len(storage.Accounts))
+		fmt.Printf("✓ Accounts are exported to %s.\n", filename)
 
 	case "account-history":
 		filename := "account_history_export.csv"
@@ -48,7 +48,7 @@ func handleExport() {
 			fmt.Printf("Error exporting account history: %v\n", err)
 			return
 		}
-		fmt.Printf("✓ Account history exported to %s (%d records)\n", filename, len(storage.AccountTransactions))
+		fmt.Printf("✓ Account history(Account Transactions) are exported to %s\n", filename)
 
 	case "all":
 		fmt.Println("Exporting all data...")
@@ -57,21 +57,21 @@ func handleExport() {
 		if err := core.ExportTransactionsToCSV("transactions_export.csv"); err != nil {
 			fmt.Printf("Error exporting transactions: %v\n", err)
 		} else {
-			fmt.Printf("✓ Transactions exported (%d records)\n", len(storage.Transactions))
+			fmt.Printf("✓ Transactions are exported.\n")
 		}
 
 		// Export accounts
 		if err := core.ExportAccountsToCSV("accounts_export.csv"); err != nil {
 			fmt.Printf("Error exporting accounts: %v\n", err)
 		} else {
-			fmt.Printf("✓ Accounts exported (%d records)\n", len(storage.Accounts))
+			fmt.Printf("✓ Accounts are exported.\n")
 		}
 
 		// Export account history
 		if err := core.ExportAccountTransactionsToCSV("account_history_export.csv"); err != nil {
 			fmt.Printf("Error exporting account history: %v\n", err)
 		} else {
-			fmt.Printf("✓ Account history exported (%d records)\n", len(storage.AccountTransactions))
+			fmt.Printf("✓ Account history(Account Transactions) are exported.\n")
 		}
 
 		fmt.Println("\n✓ All data exported successfully!")
@@ -115,7 +115,7 @@ func handleImport() {
 
 	switch importType {
 	case "transactions":
-		oldCount := len(storage.Transactions)
+		oldCount := core.GetAccountsTransactionsLength()
 
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Printf("Import transactions from '%s'?\n", filename)
@@ -129,12 +129,12 @@ func handleImport() {
 			return
 		}
 
-		newCount := len(storage.Transactions) - oldCount
-		fmt.Printf("✓ Imported %d transactions from %s\n", newCount, filename)
-		fmt.Printf("Total transactions: %d\n", len(storage.Transactions))
+		newCount := core.GetAccountsTransactionsLength()
+		fmt.Printf("✓ Imported new %d transactions from %s\n", newCount-oldCount, filename)
+		fmt.Printf("Total transactions: %d\n", newCount)
 
 	case "accounts":
-		oldCount := len(storage.Accounts)
+		oldCount := core.GetAccountsLength()
 
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Printf("Import accounts from '%s'?\n", filename)
@@ -148,9 +148,9 @@ func handleImport() {
 			return
 		}
 
-		newCount := len(storage.Accounts) - oldCount
-		fmt.Printf("✓ Imported %d accounts from %s\n", newCount, filename)
-		fmt.Printf("Total accounts: %d\n", len(storage.Accounts))
+		newCount := core.GetAccountsLength()
+		fmt.Printf("✓ Imported new %d accounts from %s\n", newCount-oldCount, filename)
+		fmt.Printf("Total accounts: %d\n", newCount)
 
 	default:
 		fmt.Printf("Unknown import type: %s\n", importType)
