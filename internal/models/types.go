@@ -4,6 +4,26 @@ import (
 	"time"
 )
 
+type TransactionType string
+type GoalStatus string
+type GoalPriority string
+
+const (
+	Income  TransactionType = "income"
+	Expense TransactionType = "expense"
+)
+
+const (
+	StatusActive    GoalStatus = "active"
+	StatusCompleted GoalStatus = "completed"
+)
+
+const (
+	HighPriority   GoalPriority = "high"
+	MediumPriority GoalPriority = "medium"
+	LowPriority    GoalPriority = "low"
+)
+
 // Transaction represents a financial transaction (income or expense)
 type Transaction struct {
 	ID           string    `json:"id"`
@@ -62,13 +82,19 @@ type GoalContribution struct {
 	Automatic bool      `json:"automatic"`
 }
 
-// AppData structure to hold all app data (for JSON backup compatibility)
-type AppData struct {
-	Transactions        []Transaction        `json:"transactions"`
-	Accounts            []Account            `json:"accounts"`
-	AccountTransactions []AccountTransaction `json:"account_transactions"`
-	Goals               []Goal               `json:"goals"`
-	GoalContributions   []GoalContribution   `json:"goal_contributions"`
+// CurrencyTotal holds income and expenses for a specific currency
+type CurrencyTotal struct {
+	Income   float64
+	Expenses float64
+}
+
+// CategorySummary holds the aggregated data for a single category
+type CategorySummary struct {
+	Category     string
+	CurrencyCode string
+	Count        int
+	TotalIncome  float64
+	TotalExpense float64
 }
 
 // =================================================
@@ -92,21 +118,23 @@ type SearchCriteria struct {
 // ===================================================================
 // MonthlyReport represents financial data for a specific month
 type MonthlyReport struct {
-	Year     int // because time.Date.Year() function returns int
-	Month    time.Month
-	Income   float64
-	Expenses float64
-	Net      float64
-	TxCount  int
+	Year         int // because time.Date.Year() function returns int
+	Month        time.Month
+	Income       float64
+	Expenses     float64
+	Net          float64
+	TxCount      int
+	CurrencyCode string
 }
 
 // CategoryReport represents spending/income for a category
-type CategoryReport struct {
-	Category string
-	Amount   float64
-	Count    int
-	Percent  float64
-}
+// type CategoryReport struct {
+// 	Category     string
+// 	Amount       float64
+// 	Count        int
+// 	Percent      float64
+// 	CurrencyCode string
+// }
 
 // ComparisonReport represents comparison between two periods
 type ComparisonReport struct {
@@ -118,4 +146,5 @@ type ComparisonReport struct {
 	ExpenseChange   float64
 	IncomePercent   float64
 	ExpensePercent  float64
+	CurrencyCode    string
 }
