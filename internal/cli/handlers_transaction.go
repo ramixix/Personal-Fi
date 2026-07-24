@@ -384,7 +384,7 @@ func ListFilteredTransactions(transaction_list []models.Transaction, title strin
 		return
 	}
 
-	var totals map[string]*models.CurrencyTotal = make(map[string]*models.CurrencyTotal)
+	var totals map[string]models.CurrencyTotal = make(map[string]models.CurrencyTotal)
 
 	for _, transaction := range transaction_list {
 		fmt.Printf("ID: %-6s | %15s | %-8s | %-10s | %-3s | %-20s | %s\n",
@@ -402,14 +402,15 @@ func ListFilteredTransactions(transaction_list []models.Transaction, title strin
 		} else {
 			total.Expenses += transaction.Amount
 		}
+		totals[transaction.CurrencyCode] = total
 	}
 
 	fmt.Printf("\n--- Summary ---\n")
 	for cur, total := range totals {
-		fmt.Printf("Currency:   %-2s\n", cur)
-		fmt.Printf("Total Income:   %-.2f\n", total.Income)
-		fmt.Printf("Total Expenses: %-.2f\n", total.Expenses)
-		fmt.Printf("Net Amount:     %-.2f\n", total.Income-total.Expenses)
+		fmt.Printf("Currency:   %2s\n", cur)
+		fmt.Printf("Total Income:   %.2f\n", total.Income)
+		fmt.Printf("Total Expenses: %.2f\n", total.Expenses)
+		fmt.Printf("Net Amount:     %.2f\n", total.Income-total.Expenses)
 
 	}
 }
