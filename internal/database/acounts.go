@@ -148,7 +148,7 @@ func (s *Store) GetAccountByName(name string) (*models.Account, error) {
 	`
 
 	var account models.Account
-	err := s.db.QueryRow(query, name).Scan(&account.ID, account.Name, account.Balance, account.CurrencyCode, account.Created)
+	err := s.db.QueryRow(query, name).Scan(&account.ID, &account.Name, &account.Balance, &account.CurrencyCode, &account.Created)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("account not found: %s", name)
