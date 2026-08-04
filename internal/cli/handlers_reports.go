@@ -168,7 +168,7 @@ func handleYearlyReport() {
 		}
 
 		fmt.Println(strings.Repeat("-", 70))
-		fmt.Printf("%-10s | %-11.2f | %-11.2f | %-11.2f | %d\n", "TOTAL",
+		fmt.Printf("%-10s | %-11s | %-11s | %-11s | %d\n", "TOTAL",
 			utils.FormatCurrency(totalIncome, currency),
 			utils.FormatCurrency(totalExpenses, currency),
 			utils.FormatCurrency(totalNet, currency),
@@ -182,11 +182,11 @@ func handleYearlyReport() {
 				previousYear := reports[y-1]
 				comparison := core.GetYearOverYearComparison(previousYear.Year, currentYear.Year)
 				for currency, report := range comparison {
-					fmt.Printf("  Income:   %.2f → %.2f (%+.1f%%)\n",
+					fmt.Printf("  Income:   %s → %s (%+.1f%%)\n",
 						utils.FormatCurrency(report.Period1Income, currency),
 						utils.FormatCurrency(report.Period2Income, currency),
 						report.IncomePercent)
-					fmt.Printf("  Expenses: %.2f → %.2f (%+.1f%%)\n",
+					fmt.Printf("  Expenses: %s → %s (%+.1f%%)\n",
 						utils.FormatCurrency(report.Period1Expenses, currency),
 						utils.FormatCurrency(report.Period2Expenses, currency),
 						report.ExpensePercent)
@@ -245,7 +245,7 @@ func handleQuarterlyReport() {
 	}
 
 	fmt.Print("\n")
-	for currency, total := range totalIncome {
+	for currency, total := range totalExpenses {
 		fmt.Printf("Currency: %-5s | Total Expense: %-12s\n", currency, utils.FormatCurrency(total, currency))
 	}
 }
@@ -455,7 +455,7 @@ func displayComparisonReport(comparisonReport map[string]models.ComparisonReport
 		if report.IncomeChange >= 0 {
 			incomeSymbol = "+"
 		}
-		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+		fmt.Printf("%-15s | %-14s | %-14s | %s%s (%+.1f%%)\n",
 			"Income",
 			utils.FormatCurrency(report.Period1Income, currency),
 			utils.FormatCurrency(report.Period2Income, currency),
@@ -468,7 +468,7 @@ func displayComparisonReport(comparisonReport map[string]models.ComparisonReport
 		if report.ExpenseChange >= 0 {
 			expenseSymbol = "+"
 		}
-		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+		fmt.Printf("%-15s | %-14s | %-14s | %s%s (%+.1f%%)\n",
 			"Expenses",
 			utils.FormatCurrency(report.Period1Expenses, currency),
 			utils.FormatCurrency(report.Period2Expenses, currency),
@@ -490,7 +490,7 @@ func displayComparisonReport(comparisonReport map[string]models.ComparisonReport
 		if net1 != 0 {
 			netPercent = (netChange / net1) * 100
 		}
-		fmt.Printf("%-15s | %-14.2f | %-14.2f | %s%.2f (%+.1f%%)\n",
+		fmt.Printf("%-15s | %-14s | %-14s | %s%s (%+.1f%%)\n",
 			"Net",
 			utils.FormatCurrency(net1, currency),
 			utils.FormatCurrency(net2, currency),
