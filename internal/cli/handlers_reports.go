@@ -403,7 +403,7 @@ func handleCustomPeriodComparison(reader *bufio.Reader) {
 	fmt.Println("\nPeriod 1:")
 	fmt.Print("  Start date (YYYY-MM-DD): ")
 	start1Input, _ := reader.ReadString('\n')
-	start1, err := utils.ParseDate(start1Input)
+	start1, err := utils.ParseDate(strings.TrimSpace(start1Input))
 	if err != nil {
 		fmt.Println("Invalid date!")
 		return
