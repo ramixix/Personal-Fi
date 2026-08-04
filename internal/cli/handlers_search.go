@@ -125,7 +125,7 @@ func handleAdvancedSearch() {
 	// Amount Range
 	fmt.Print("Minimum amount (or 0 to skip): $")
 	minInput, _ := reader.ReadString('\n')
-	minAmount, err := strconv.ParseFloat(minInput, 64)
+	minAmount, err := strconv.ParseFloat(strings.TrimSpace(minInput), 64)
 	if err == nil && minAmount > 0 {
 		criteria.MinAmount = minAmount
 	}
