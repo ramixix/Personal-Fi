@@ -150,6 +150,7 @@ func ExportGoalsToCSV(filename string) error {
 				goal.Status,
 				goal.LinkedAccountID,
 				goal.Created.Format("2006-01-02"),
+				goal.CompletedDate.Format("2006-01-02"),
 			}
 			if err := writer.Write(record); err != nil {
 				return fmt.Errorf("failed to write record %s: %w", goal.ID, err)
@@ -241,7 +242,7 @@ func ImportTransactionsFromCSV(filename string) error {
 	}
 
 	for _, record := range records {
-		if len(record) < headerLenght {
+		if len(record) != headerLenght {
 			continue // Skip invalid records
 		}
 
@@ -303,7 +304,7 @@ func ImportAccountsFromCSV(filename string) error {
 	}
 
 	for _, record := range records {
-		if len(record) < headerLenght {
+		if len(record) != headerLenght {
 			continue
 		}
 
