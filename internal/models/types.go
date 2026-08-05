@@ -16,6 +16,7 @@ const (
 const (
 	StatusActive    GoalStatus = "active"
 	StatusCompleted GoalStatus = "completed"
+	StatusPaused    GoalStatus = "paused"
 )
 
 const (
