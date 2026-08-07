@@ -113,7 +113,7 @@ InputLoop:
 			break InputLoop
 		default:
 			number, err := strconv.Atoi(input)
-			if err != nil || number <= 0 || number >= totalAccounts {
+			if err != nil || number <= 0 || number > totalAccounts {
 				fmt.Println("[Warning] Not a valid number, try again.")
 				continue
 			}
