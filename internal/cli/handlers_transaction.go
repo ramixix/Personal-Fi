@@ -66,11 +66,11 @@ func handleEditTransaction() {
 		transactionsToShow = transactionsLength
 	}
 
-	fmt.Println("\nPress Enter to show the latest %d transactions (by default).\nTo see a different number, enter it.\nType 'all' to display all transactions.", transactionsToShow)
+	fmt.Printf("\nPress Enter to show the latest %d transactions (by default).\nTo see a different number, enter it.\nType 'all' to display all transactions.", transactionsToShow)
 	reader := bufio.NewReader(os.Stdin)
 	transactionsToShow = GetTransactionNumberToShow(reader, transactionsToShow)
 
-	ListFilteredTransactions(core.GetRecentTransactions(transactionsToShow), fmt.Sprint("listing last %d transactions", transactionsToShow))
+	ListFilteredTransactions(core.GetRecentTransactions(transactionsToShow), fmt.Sprintf("listing last %d transactions", transactionsToShow))
 
 	input := utils.GetNonEmptyString(reader, "\nPlease Enter The Transaction ID to edit (or 'cancel'): ")
 	if input == "cancel" {
@@ -85,7 +85,7 @@ func handleEditTransaction() {
 		return
 	}
 
-	fmt.Printf("\n--- Editing Transaction ID %S ---\n", txID)
+	fmt.Printf("\n--- Editing Transaction ID %s ---\n", txID)
 	fmt.Println("Press Enter to keep current value")
 
 	// Edit type
@@ -174,12 +174,12 @@ func handleDeleteTransaction() {
 		transactionsToShow = transactionsLength
 	}
 
-	fmt.Println("\nPress Enter to show the latest %d transactions (default).\nEnter different number if you want.\nType 'all' to display all transactions. Your Input: ", transactionsToShow)
+	fmt.Printf("\nPress Enter to show the latest %d transactions (default).\nEnter different number if you want.\nType 'all' to display all transactions. Your Input: ", transactionsToShow)
 
 	reader := bufio.NewReader(os.Stdin)
 	transactionsToShow = GetTransactionNumberToShow(reader, transactionsToShow)
 
-	ListFilteredTransactions(core.GetRecentTransactions(transactionsToShow), fmt.Sprint("listing recent %d transactions", transactionsToShow))
+	ListFilteredTransactions(core.GetRecentTransactions(transactionsToShow), fmt.Sprintf("listing recent %d transactions", transactionsToShow))
 
 	input := utils.GetNonEmptyString(reader, "\nPlease Enter The Transaction ID to Delete (or 'cancel'): ")
 	if input == "cancel" {
@@ -194,7 +194,7 @@ func handleDeleteTransaction() {
 
 	err := core.DeleteTransaction(txID)
 	if err != nil {
-		fmt.Printf("error : %w", err)
+		fmt.Printf("error : %v", err)
 		fmt.Printf("Transaction ID %s is not in the list please enter an ID that is in the list!\n", txID)
 		return
 	}
@@ -272,7 +272,7 @@ func showCategories() {
 	for _, summary := range summaries {
 		netAmount := summary.TotalIncome - summary.TotalExpense
 
-		fmt.Printf("%-15s (%s): %d Transactions | Total Income: %-10s | Total Expenses: %-10s | Net Amount: %.2f\n",
+		fmt.Printf("%-15s (%s): %d Transactions | Total Income: %-10s | Total Expenses: %-10s | Net Amount: %s\n",
 			summary.Category,
 			summary.CurrencyCode,
 			summary.Count,

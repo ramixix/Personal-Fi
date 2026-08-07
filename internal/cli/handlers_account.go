@@ -136,7 +136,7 @@ func handleAddToAccount() {
 	fmt.Println("Add Money To Account")
 	fmt.Println("====================")
 	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
-	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
+	fmt.Printf("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
 
 	accountsToShow := GetAccountsNumberToShow(reader, recent100)
@@ -146,7 +146,7 @@ func handleAddToAccount() {
 
 	account := core.FindAccount(id)
 	if account == nil {
-		fmt.Println("Account with ID %s not found", id)
+		fmt.Printf("Account with ID %s not found", id)
 		return
 	}
 
@@ -170,7 +170,7 @@ func handleAccountHistory() {
 	fmt.Println("Acouunt History")
 	fmt.Println("===============")
 	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
-	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
+	fmt.Printf("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
 
 	accountsToShow := GetAccountsNumberToShow(reader, recent100)
@@ -181,7 +181,7 @@ func handleAccountHistory() {
 	var accountName string
 	account := core.FindAccount(id)
 	if account == nil {
-		fmt.Println("Account with ID %s not found", id)
+		fmt.Printf("Account with ID %s not found", id)
 		return
 	}
 	accountName = account.Name
@@ -213,7 +213,7 @@ func handleDeleteAccount() {
 	fmt.Println("Delete Account")
 	fmt.Println("==============")
 	fmt.Printf("\n[Info] Total Account Number: %d.\n", accountsCount)
-	fmt.Println("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
+	fmt.Printf("\nPress Enter to show the latest %d accounts (if possible by default).\nTo see a different number, enter it.\nType 'all' to display all accounts.", recent100)
 	reader := bufio.NewReader(os.Stdin)
 
 	accountsToShow := GetAccountsNumberToShow(reader, recent100)
