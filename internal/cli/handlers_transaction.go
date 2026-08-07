@@ -317,7 +317,7 @@ func handleCustomRange() {
 	}
 
 	if end_date.Before(start_date) {
-		fmt.Println("[Error] End date must be before start date, there is a logical error")
+		fmt.Println("[Error] End date must be After start date, there is a logical error")
 		return
 	}
 
