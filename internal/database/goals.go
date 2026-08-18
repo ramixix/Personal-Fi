@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+type DBTX interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 //=============================================== Create(C) =================================================
 
 // InsertGoal creates a new goal
@@ -175,6 +181,11 @@ func (s *Store) scanGoals(rows *sql.Rows) ([]models.Goal, error) {
 
 // GetGoalByID retrieves a single goal by ID
 func (s *Store) GetGoalByID(goalID string) (*models.Goal, error) {
+	return s.GetGoalByIDTx(s.db, goalID)
+}
+
+// GetGoalByIDTx retrieves a single goal by ID (for a specified db connection)
+func (s *Store) GetGoalByIDTx(db DBTX, goalID string) (*models.Goal, error) {
 	query := `
 		SELECT id, name, description, target_amount, current_amount, currency_code,
 			   deadline, has_deadline, category, priority, status,
@@ -184,7 +195,7 @@ func (s *Store) GetGoalByID(goalID string) (*models.Goal, error) {
 	`
 
 	var goal models.Goal
-	err := s.db.QueryRow(query, goalID).Scan(
+	err := db.QueryRow(query, goalID).Scan(
 		&goal.ID,
 		&goal.Name,
 		&goal.Description,
@@ -348,6 +359,11 @@ func (s *Store) UpdateGoal(newGoalValue models.Goal) error {
 
 // UpdateGoalStatus updates only the status of a goal
 func (s *Store) UpdateGoalStatus(goalID string, status string) error {
+	return s.UpdateGoalStatusTx(s.db, goalID, status)
+}
+
+// UpdateGoalStatusTx updates only the status of a goal (For specified db connection)
+func (s *Store) UpdateGoalStatusTx(db DBTX, goalID string, status string) error {
 	var query string
 	var args []interface{}
 
@@ -359,7 +375,7 @@ func (s *Store) UpdateGoalStatus(goalID string, status string) error {
 		args = []interface{}{status, goalID}
 	}
 
-	result, err := s.db.Exec(query, args...)
+	result, err := db.Exec(query, args...)
 	if err != nil {
 		s.logger.Error("Failed to update status of given goal", "error", err, "id", goalID)
 		return fmt.Errorf("failed to chage status of given goal(%s): %w", goalID, err)
@@ -405,9 +421,9 @@ func (s *Store) UpdateGoalCurrentAmount(goalID string, newAmount float64) error 
 }
 
 // AddToGoalAmount adds an amount to goal's current amount (atomic)
-func (s *Store) AddToGoalAmount(goalID string, amount float64) error {
+func (s *Store) AddToGoalAmountTx(tx *sql.Tx, goalID string, amount float64) error {
 	// Get current goal to check if it should be marked as completed
-	goal, err := s.GetGoalByID(goalID)
+	goal, err := s.GetGoalByIDTx(tx, goalID)
 	if err != nil {
 		return err
 	}
@@ -417,12 +433,12 @@ func (s *Store) AddToGoalAmount(goalID string, amount float64) error {
 	// Check if goal is now completed
 	if newAmount >= goal.TargetAmount && goal.Status == string(models.StatusActive) {
 		// Use transaction to update both amount and status
-		return s.completeGoalWithAmount(goalID, newAmount)
+		return s.completeGoalWithAmountTx(tx, goalID, newAmount)
 	}
 
 	// Just update the amount
-	query := `UPDATE goals SET current_amount = ? WHERE id = ?`
-	result, err := s.db.Exec(query, newAmount, goalID)
+	query := `UPDATE goals SET current_amount = current_amount + ? WHERE id = ?`
+	result, err := tx.Exec(query, amount, goalID)
 	if err != nil {
 		s.logger.Error("Failed to add to goal amount", "error", err, "id", goalID)
 		return fmt.Errorf("failed to add to goal amount: %w", err)
@@ -439,13 +455,18 @@ func (s *Store) AddToGoalAmount(goalID string, amount float64) error {
 
 // completeGoalWithAmount marks goal as completed and updates amount atomically
 func (s *Store) completeGoalWithAmount(goalID string, newAmount float64) error {
+	return s.completeGoalWithAmountTx(s.db, goalID, newAmount)
+}
+
+// completeGoalWithAmountTx marks goal as completed and updates amount atomically (For a specified db connection)
+func (s *Store) completeGoalWithAmountTx(db DBTX, goalID string, newAmount float64) error {
 	query := `
 		UPDATE goals 
 		SET current_amount = ?, status = ?, completed_date = ?
 		WHERE id = ?
 	`
 
-	result, err := s.db.Exec(query, newAmount, models.StatusCompleted, time.Now(), goalID)
+	result, err := db.Exec(query, newAmount, models.StatusCompleted, time.Now(), goalID)
 	if err != nil {
 		return fmt.Errorf("failed to complete goal: %w", err)
 	}
@@ -610,7 +631,7 @@ func (s *Store) InsertGoalContribution(contribution models.GoalContribution) (st
 	}
 
 	// Get goal to check completion
-	err = s.AddToGoalAmount(contribution.GoalID, contribution.Amount)
+	err = s.AddToGoalAmountTx(dbTx, contribution.GoalID, contribution.Amount)
 	if err != nil {
 		return "", fmt.Errorf("failed to update goal amount after creating new goal contribution: %w", err)
 	}
@@ -715,7 +736,7 @@ func (s *Store) GetGoalContributionByID(id string) (*models.GoalContribution, er
 }
 
 // GetRecentContributions retrieves N contributions related to all goals
-func (s *Store) GetRecentContributions(limit int) ([]models.GoalContribution, error) {
+func (s *Store) GetRecentGoalContributions(limit int) ([]models.GoalContribution, error) {
 	query := `
 		SELECT id, goal_id, amount, date, note, automatic
 		FROM goal_contributions
@@ -774,7 +795,7 @@ func (s *Store) UpdateGoalContribution(newContributionValue models.GoalContribut
 	}
 
 	balanceDifference := newContributionValue.Amount - oldGoalContribution.Amount
-	err = s.AddToGoalAmount(newContributionValue.GoalID, balanceDifference)
+	err = s.AddToGoalAmountTx(dbTx, newContributionValue.GoalID, balanceDifference)
 	if err != nil {
 		return fmt.Errorf("Failed to update goal amount after updating goal contribution: %w", err)
 	}
@@ -813,12 +834,12 @@ func (s *Store) DeleteGoalContribution(id string) error {
 
 	// Reverse the amount (and possibly status change)
 	balanceDifference := -contribution.Amount
-	err = s.AddToGoalAmount(contribution.GoalID, balanceDifference)
+	err = s.AddToGoalAmountTx(dbTx, contribution.GoalID, balanceDifference)
 	if err != nil {
 		return fmt.Errorf("Failed to update goal amount after updating goal contribution: %w", err)
 	}
 
-	goal, err := s.GetGoalByID(contribution.GoalID)
+	goal, err := s.GetGoalByIDTx(dbTx, contribution.GoalID)
 	if err != nil {
 		return err
 	}
