@@ -457,7 +457,7 @@ func (g *GoalsScreen) showContributeDialog(goal models.Goal) {
 			}
 
 			updatedGoal := core.FindGoal(goal.ID)
-			if updatedGoal != nil && updatedGoal.Status == "complete" {
+			if updatedGoal != nil && updatedGoal.Status == string(models.StatusCompleted) {
 				g.showGoalCompletedCelebration(updatedGoal)
 			} else {
 				dialog.ShowInformation("Success", fmt.Sprintf("Added %.2f(%s) to %s! 🎉", amount, goal.CurrencyCode, goal.Name), g.guiApp.GuiWindow)
@@ -517,7 +517,7 @@ func (g *GoalsScreen) showGoalDetails(goal models.Goal) {
 	if contributionCount > 0 {
 		details += fmt.Sprintf("\n--- Recent Contributions (%d total) ---\n", contributionCount)
 		recent := 10
-		for i := 0; i < recent; i++ {
+		for i := 0; i < recent && i < contributionCount; i++ {
 			details += fmt.Sprintf("%s: +%.2f - %s\n", contributionslist[i].Date.Format("Jan 02, 2006"),
 				contributionslist[i].Amount,
 				contributionslist[i].Note)
@@ -638,6 +638,14 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		}
 
 		goalPointer := core.FindGoal(goal.ID)
+		if goalPointer == nil {
+			dialog.ShowError(
+				fmt.Errorf("goal no longer exists"),
+				g.guiApp.GuiWindow,
+			)
+			return
+		}
+
 		goalPointer.Name = nameEntry.Text
 		goalPointer.Description = descriptionEntry.Text
 		goalPointer.TargetAmount = amount
@@ -648,8 +656,8 @@ func (g *GoalsScreen) showEditGoalDialog(goal models.Goal) {
 		}
 		goalPointer.Category = categorySelect.Selected
 		goalPointer.Priority = prioritySelect.Selected
-		if goalPointer.CurrentAmount > amount {
-			goalPointer.Status = "complete"
+		if goalPointer.CurrentAmount >= amount {
+			goalPointer.Status = string(models.StatusCompleted)
 		}
 
 		err = core.UpdateGoal(*goalPointer)
