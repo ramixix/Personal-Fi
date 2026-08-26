@@ -126,7 +126,7 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Transaction & Goals", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	recentTransactions := core.GetRecentTransactions(5)
-	recentGoalContributions := core.GetRecentContributions(5)
+	recentGoalContributions := core.GetRecentGoalContributions(5)
 
 	var transacCards []fyne.CanvasObject
 	var goalContributionCards []fyne.CanvasObject
@@ -166,8 +166,10 @@ func (d *DashboardScreen) createRecentEvents() fyne.CanvasObject {
 
 		for _, contribution := range recentGoalContributions {
 			goal := core.FindGoal(contribution.GoalID)
-
-			cardTitle := fmt.Sprintf("Contribution ID %d\nContributed To Goal: %s", contribution.ID, goal.Name)
+			if goal == nil {
+				continue
+			}
+			cardTitle := fmt.Sprintf("Contribution ID %s\nContributed To Goal: %s", contribution.ID, goal.Name)
 			cardSubtitle := fmt.Sprintf("Note: %s", contribution.Note)
 			cardAmount := fmt.Sprintf("Amount: %s", utils.FormatCurrency(contribution.Amount, goal.CurrencyCode))
 			cardDate := contribution.Date.Format("Jan 02, 2006")
