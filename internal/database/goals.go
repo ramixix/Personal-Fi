@@ -86,7 +86,7 @@ func (s *Store) GetGoalsLength(status models.GoalStatus) (int, error) {
 	query := `SELECT COUNT(*) FROM goals`
 	args := []any{}
 
-	if status != "" && status == models.StatusActive || status == models.StatusCompleted {
+	if status != "" && (status == models.StatusActive || status == models.StatusCompleted) {
 		query += ` WHERE status = ?`
 		args = append(args, status)
 	}

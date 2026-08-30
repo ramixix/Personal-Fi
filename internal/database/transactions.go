@@ -50,7 +50,7 @@ func (s *Store) GetTransactionsLength(transactionType models.TransactionType) (i
 	query := `SELECT COUNT(*) FROM transactions`
 	args := []any{}
 
-	if transactionType != "" && transactionType == models.Expense || transactionType == models.Income {
+	if transactionType != "" && (transactionType == models.Expense || transactionType == models.Income) {
 		query += ` WHERE type = ?`
 		args = append(args, transactionType)
 	}
