@@ -95,6 +95,12 @@ func (s *Store) scanTransactions(rows *sql.Rows) ([]models.Transaction, error) {
 		}
 		transactions = append(transactions, tx)
 	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
 	return transactions, nil
 }
 
@@ -282,6 +288,11 @@ func (s *Store) GetCategories() ([]string, error) {
 		categories = append(categories, category)
 	}
 
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
 	return categories, nil
 }
 
@@ -314,6 +325,11 @@ func (s *Store) GetTransactionsCategorySummary() ([]models.CategorySummary, erro
 			continue
 		}
 		summaries = append(summaries, cs)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
 	return summaries, nil
@@ -395,6 +411,11 @@ func (s *Store) GetCurrencyTotals() (map[string]models.CurrencyTotal, error) {
 			continue
 		}
 		totals[currency] = ct
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating over rows", "error", err)
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
 	return totals, nil
