@@ -845,7 +845,7 @@ func (s *Store) DeleteGoalContribution(id string) error {
 	}
 
 	if goal.Status == string(models.StatusCompleted) && goal.CurrentAmount < goal.TargetAmount {
-		err := s.UpdateGoalStatus(goal.ID, string(models.StatusActive))
+		err := s.UpdateGoalStatusTx(dbTx, goal.ID, string(models.StatusActive))
 		if err != nil {
 			return err
 		}
